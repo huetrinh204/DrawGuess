@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/logo.png" alt="DrawGuess Logo" width="140" />
+<img src="./my-app/public/logo.png" alt="DrawGuess Logo" width="140" />
 
 # 🎨 DrawGuess
 
