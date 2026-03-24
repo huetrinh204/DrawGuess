@@ -128,6 +128,6 @@ Mở [http://localhost:3000](http://localhost:3000) và chơi thôi! 🎉
 
 <div align="center">
 
-Made with 🩷 and a lot of ☕
+Made By Huệ Trinh Meo ☕
 
 </div>

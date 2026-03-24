@@ -18,7 +18,7 @@ export default function PlayerList() {
           <li key={p.id} className="flex items-center gap-2 text-sm">
             <div className="relative shrink-0">
               <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-50 border border-gray-200">
-                <img src={p.avatar || ""} alt={p.name} className="w-full h-full object-cover" />
+                <img src={p.avatar || ""} alt={p.name} width={32} height={32} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </div>
               {p.id === drawerId && (
                 <span className="absolute -bottom-1 -right-1 text-xs leading-none">🎨</span>

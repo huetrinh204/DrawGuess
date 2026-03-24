@@ -46,6 +46,6 @@ export interface GameState {
   roundActive: boolean
   timeLeft: number
   messages: ChatMessage[]
-  leaderboard: { name: string; score: number }[]
+  leaderboard: { name: string; score: number; avatar: string }[]
   gameOver: boolean
 }

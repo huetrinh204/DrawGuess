@@ -18,7 +18,7 @@ interface GameStore {
   roundActive: boolean
   timeLeft: number
   messages: ChatMessage[]
-  leaderboard: { name: string; score: number }[]
+  leaderboard: { name: string; score: number; avatar: string }[]
   gameOver: boolean
   // chọn từ
   choosingWord: boolean
@@ -35,7 +35,7 @@ interface GameStore {
   addMessage: (msg: ChatMessage) => void
   setTimeLeft: (t: number) => void
   setRoundEnd: (word: string, scores: Record<string, number>) => void
-  setGameOver: (leaderboard: { name: string; score: number }[]) => void
+  setGameOver: (leaderboard: { name: string; score: number; avatar: string }[]) => void
   setGameStarted: (v: boolean) => void
   setChoosingWord: (choices: string[]) => void
   setWaitingForDrawer: (drawerName: string) => void

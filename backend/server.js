@@ -145,7 +145,7 @@ function endRound(roomId) {
   if (room.round > room.maxRounds) {
     // Kết thúc game
     const sorted = room.players
-      .map(p => ({ name: p.name, score: room.scores[p.id] || 0 }))
+      .map(p => ({ name: p.name, score: room.scores[p.id] || 0, avatar: p.avatar || "" }))
       .sort((a, b) => b.score - a.score)
     io.to(roomId).emit("game_over", { leaderboard: sorted })
     room.started = false
