@@ -228,14 +228,17 @@ function GameContent() {
             {/* Actions */}
             <div className="flex gap-3">
               <button
-                onClick={() => router.push(`/room?roomId=${roomId}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`)}
+                onClick={() => {
+                  store.resetGame()
+                  router.push(`/room?roomId=${roomId}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`)
+                }}
                 className="flex-1 py-3 rounded-2xl font-black text-white text-sm shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
                 style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
               >
                 Chơi lại
               </button>
               <button
-                onClick={() => router.push("/")}
+                onClick={() => { store.resetGame(); router.push("/") }}
                 className="flex-1 py-3 rounded-2xl font-black text-sm shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
                 style={{ background: "#f3f0ff", color: "#7c3aed", border: "2px solid #ddd6fe" }}
               >

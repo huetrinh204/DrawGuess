@@ -185,8 +185,18 @@ io.on("connection", (socket) => {
 
     const room = rooms[roomId]
 
-    // Tránh trùng socket
-    if (!room.players.find(p => p.id === socket.id)) {
+    // Nếu đã có player cùng tên thì update socket id (reconnect / chơi lại)
+    const existing = room.players.find(p => p.name === name)
+    if (existing) {
+      // Chuyển socket id cũ sang mới
+      const oldId = existing.id
+      existing.id = socket.id
+      existing.avatar = avatar || existing.avatar
+      room.scores[socket.id] = room.scores[oldId] ?? 0
+      if (oldId !== socket.id) delete room.scores[oldId]
+      if (room.hostId === oldId) room.hostId = socket.id
+      if (room.drawerId === oldId) room.drawerId = socket.id
+    } else {
       room.players.push({ id: socket.id, name, avatar: avatar || "" })
       room.scores[socket.id] = 0
     }
@@ -348,6 +358,8 @@ io.on("connection", (socket) => {
 
     if (room.players.length === 0) {
       if (room.timer) clearTimeout(room.timer)
+      if (room.chooseTimer) clearTimeout(room.chooseTimer)
+      if (room.autoChooseTimer) clearTimeout(room.autoChooseTimer)
       delete rooms[roomId]
     }
   })
