@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+<img src="public/logo.png" alt="DrawGuess Logo" width="140" />
 
-First, run the development server:
+# 🎨 DrawGuess
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### *Vẽ hình đoán chữ cùng bạn bè — realtime, vui hết nấc!*
+
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
+[![Socket.io](https://img.shields.io/badge/Socket.io-realtime-010101?style=for-the-badge&logo=socket.io)](https://socket.io)
+[![TypeScript](https://img.shields.io/badge/TypeScript-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind-CSS-38bdf8?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+
+</div>
+
+---
+
+## ✨ Tính năng
+
+- 🏡 **Tạo & tham gia phòng** — tạo phòng riêng, chia sẻ mã code cho bạn bè
+- 🎭 **Chọn nhân vật** — 16 avatar dễ thương để thể hiện cá tính
+- 🖌️ **Vẽ realtime** — canvas đồng bộ tức thì cho tất cả người chơi
+- 💬 **Chat & đoán chữ** — gõ đáp án vào chat, đoán đúng là có điểm ngay
+- 🏆 **Bảng xếp hạng** — điểm tính theo tốc độ đoán, ai nhanh thì nhiều điểm hơn
+- 🎵 **Nhạc nền** — bật/tắt nhạc tùy thích, tự dừng khi vào game
+- 👑 **Host controls** — chủ phòng toàn quyền bắt đầu game
+- ⚡ **Realtime hoàn toàn** — dùng WebSocket, không cần refresh
+
+---
+
+## 🎮 Cách chơi
+
+```
+1. 🏠  Vào trang chủ → nhập tên + chọn avatar
+2. 🏡  Tạo phòng mới hoặc nhập mã để vào phòng bạn bè
+3. ⏳  Chờ đủ 2 người → host bấm "Bắt đầu game"
+4. 🖊️  Người vẽ chọn 1 trong 2 từ gợi ý rồi vẽ lên canvas
+5. 💬  Người còn lại đoán từ qua chat — đoán đúng = điểm!
+6. 🔄  Xoay vòng qua 3 vòng → xem bảng xếp hạng cuối game
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🗂️ Cấu trúc dự án
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+📦 root
+├── 🖥️  backend/
+│   ├── server.js          # Express + Socket.io server
+│   └── package.json
+│
+└── 🌐 my-app/
+    ├── app/
+    │   ├── page.tsx        # Trang chủ (chọn tên, avatar, tạo/vào phòng)
+    │   ├── room/page.tsx   # Phòng chờ
+    │   ├── game/page.tsx   # Màn hình game chính
+    │   └── layout.tsx      # Root layout + AudioProvider
+    ├── components/
+    │   ├── Canvas.tsx      # Canvas vẽ realtime
+    │   ├── ChatBox.tsx     # Chat & đoán chữ
+    │   ├── PlayerList.tsx  # Danh sách người chơi + điểm
+    │   └── AudioProvider.tsx # Quản lý nhạc nền toàn app
+    ├── store/
+    │   └── gameStore.ts    # Zustand global state
+    ├── services/
+    │   └── socket.ts       # Socket.io client
+    └── types/
+        └── game.ts         # TypeScript types
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🚀 Chạy dự án
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Yêu cầu
+- Node.js 18+
+- npm hoặc yarn
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 1. Clone & cài dependencies
 
-## Deploy on Vercel
+```bash
+git clone <repo-url>
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Backend
+cd backend
+npm install
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Frontend
+cd ../my-app
+npm install
+```
+
+### 2. Cấu hình môi trường
+
+```bash
+# my-app/.env.local
+cp .env.local.example .env.local
+```
+
+### 3. Khởi động
+
+```bash
+# Terminal 1 — Backend (port 5000)
+cd backend
+node server.js
+
+# Terminal 2 — Frontend (port 3000)
+cd my-app
+npm run dev
+```
+
+Mở [http://localhost:3000](http://localhost:3000) và chơi thôi! 🎉
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Công nghệ |
+|---|---|
+| Frontend | Next.js 15 (App Router) + TypeScript |
+| Styling | Tailwind CSS |
+| State | Zustand |
+| Realtime | Socket.io |
+| Backend | Node.js + Express |
+| Avatars | DiceBear API |
+
+---
+
+<div align="center">
+
+Made with 🩷 and a lot of ☕
+
+</div>
