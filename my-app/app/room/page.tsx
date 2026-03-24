@@ -38,10 +38,7 @@ function RoomContent() {
     if (socket.connected) {
       doJoin()
     } else {
-      socket.once("connect", () => {
-        setMySocketId(socket.id || "")
-        socket.emit("join_room", { roomId, name, avatar })
-      })
+      socket.once("connect", doJoin)
     }
 
     socket.on("room_update", ({ players, scores, hostId }: { players: Player[]; scores: Record<string, number>; hostId: string }) => {
@@ -59,7 +56,7 @@ function RoomContent() {
     socket.on("round_start", goToGame)
 
     return () => {
-      socket.off("connect")
+      socket.off("connect", doJoin)
       socket.off("room_update")
       socket.off("pre_round")
       socket.off("choose_word")

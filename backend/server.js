@@ -98,11 +98,20 @@ function handleWordChosen(roomId, word) {
 
   const drawer = room.players.find(p => p.id === room.drawerId)
 
-  // Thông báo cho người vẽ từ đã chọn
-  io.to(room.drawerId).emit("your_turn", { word })
+  // Gửi round_start cho người vẽ kèm myWord
+  io.to(room.drawerId).emit("round_start", {
+    drawerId: room.drawerId,
+    drawerName: drawer?.name || "",
+    round: room.round,
+    maxRounds: room.maxRounds,
+    maskedWord: getMaskedWord(word),
+    wordLength: word.length,
+    timeLimit: 80,
+    myWord: word
+  })
 
-  // Thông báo round_start cho tất cả
-  io.to(roomId).emit("round_start", {
+  // Gửi round_start cho người còn lại (không có myWord)
+  socket_broadcast_except(roomId, room.drawerId, "round_start", {
     drawerId: room.drawerId,
     drawerName: drawer?.name || "",
     round: room.round,
@@ -151,12 +160,13 @@ io.on("connection", (socket) => {
   console.log("connected:", socket.id)
 
   // Tham gia phòng
-  socket.on("join_room", ({ roomId, name }) => {
+  socket.on("join_room", ({ roomId, name, avatar }) => {
     socket.join(roomId)
 
     if (!rooms[roomId]) {
       rooms[roomId] = {
         players: [],
+        hostId: socket.id,
         word: "",
         drawerId: "",
         drawerIndex: -1,
@@ -177,7 +187,7 @@ io.on("connection", (socket) => {
 
     // Tránh trùng socket
     if (!room.players.find(p => p.id === socket.id)) {
-      room.players.push({ id: socket.id, name })
+      room.players.push({ id: socket.id, name, avatar: avatar || "" })
       room.scores[socket.id] = 0
     }
 
@@ -186,7 +196,8 @@ io.on("connection", (socket) => {
 
     io.to(roomId).emit("room_update", {
       players: room.players,
-      scores: room.scores
+      scores: room.scores,
+      hostId: room.hostId
     })
 
     // Nếu game đang chạy, gửi trạng thái hiện tại
@@ -318,7 +329,12 @@ io.on("connection", (socket) => {
     room.players = room.players.filter(p => p.id !== socket.id)
     delete room.scores[socket.id]
 
-    io.to(roomId).emit("room_update", { players: room.players, scores: room.scores })
+    // Nếu host rời thì chuyển host sang người đầu tiên còn lại
+    if (room.hostId === socket.id && room.players.length > 0) {
+      room.hostId = room.players[0].id
+    }
+
+    io.to(roomId).emit("room_update", { players: room.players, scores: room.scores, hostId: room.hostId })
     io.to(roomId).emit("chat_message", {
       sender: "System",
       message: `${socket.data.name} đã rời phòng`,
