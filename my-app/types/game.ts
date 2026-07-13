@@ -7,7 +7,7 @@ export interface Player {
 export interface ChatMessage {
   sender: string
   message: string
-  type: "chat" | "system" | "correct"
+  type: "chat" | "system" | "correct" | "wrong"
 }
 
 export interface DrawData {

@@ -23,6 +23,8 @@ export default function AudioProvider({ children }: { children: React.ReactNode 
     audioRef.current = new Audio("/tiramisucake.mp3")
     audioRef.current.loop = true
     audioRef.current.volume = 0.15
+    audioRef.current.play().catch(() => {})
+    setMusicPlaying(true)
     return () => {
       audioRef.current?.pause()
       audioRef.current = null

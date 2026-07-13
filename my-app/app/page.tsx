@@ -1,229 +1,294 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
-
-const BASE = "https://api.dicebear.com/9.x/adventurer/svg"
+import { useLang } from "@/contexts/LanguageContext"
 
 const AVATARS = [
-  { id: "Mia",   url: `${BASE}?seed=Mia&backgroundColor=ffb3ba` },
-  { id: "Luna",  url: `${BASE}?seed=Luna&backgroundColor=ffc8dd` },
-  { id: "Lily",  url: `${BASE}?seed=Lily&backgroundColor=cdb4db` },
-  { id: "Zoe",   url: `${BASE}?seed=Zoe&backgroundColor=b5ead7` },
-  { id: "Nala",  url: `${BASE}?seed=Nala&backgroundColor=ffdac1` },
-  { id: "Cleo",  url: `${BASE}?seed=Cleo&backgroundColor=ffffba` },
-  { id: "Hana",  url: `${BASE}?seed=Hana&backgroundColor=a2d2ff` },
-  { id: "Yuki",  url: `${BASE}?seed=Yuki&backgroundColor=e8baff` },
-  { id: "Felix", url: `${BASE}?seed=Felix&backgroundColor=bae1ff` },
-  { id: "Leo",   url: `${BASE}?seed=Leo&backgroundColor=b5ead7` },
-  { id: "Max",   url: `${BASE}?seed=Max&backgroundColor=ffdac1` },
-  { id: "Kai",   url: `${BASE}?seed=Kai&backgroundColor=ffb3ba` },
-  { id: "Riku",  url: `${BASE}?seed=Riku&backgroundColor=cdb4db` },
-  { id: "Sora",  url: `${BASE}?seed=Sora&backgroundColor=ffffba` },
-  { id: "Kira",  url: `${BASE}?seed=Kira&backgroundColor=ffc8dd` },
-  { id: "Nova",  url: `${BASE}?seed=Nova&backgroundColor=a2d2ff` },
+  "/avatars/bo_1_avatar_01.png", "/avatars/bo_1_avatar_02.png", "/avatars/bo_1_avatar_03.png",
+  "/avatars/bo_1_avatar_04.png", "/avatars/bo_1_avatar_05.png", "/avatars/bo_1_avatar_06.png",
+  "/avatars/bo_1_avatar_07.png", "/avatars/bo_1_avatar_08.png", "/avatars/bo_1_avatar_09.png",
+  "/avatars/bo_1_avatar_10.png", "/avatars/bo_1_avatar_11.png", "/avatars/bo_1_avatar_12.png",
+  "/avatars/bo_1_avatar_13.png", "/avatars/bo_1_avatar_14.png", "/avatars/bo_1_avatar_15.png",
+  "/avatars/bo_1_avatar_16.png",
+  "/avatars/bo_2_avatar_01.png", "/avatars/bo_2_avatar_02.png", "/avatars/bo_2_avatar_03.png",
+  "/avatars/bo_2_avatar_04.png", "/avatars/bo_2_avatar_05.png", "/avatars/bo_2_avatar_06.png",
+  "/avatars/bo_2_avatar_07.png", "/avatars/bo_2_avatar_08.png",
+  "/avatars/bo_3_avatar_01.png", "/avatars/bo_3_avatar_02.png", "/avatars/bo_3_avatar_03.png",
+  "/avatars/bo_3_avatar_04.png", "/avatars/bo_3_avatar_05.png", "/avatars/bo_3_avatar_06.png",
+  "/avatars/bo_3_avatar_07.png", "/avatars/bo_3_avatar_08.png", "/avatars/bo_3_avatar_09.png",
 ]
 
-const FLOATS = ["🐱", "🌸", "🍭", "🦋", "🌙", "🍬", "🐰", "💫"]
+function randomAvatar() {
+  return AVATARS[Math.floor(Math.random() * AVATARS.length)]
+}
+
+function Modal({ message, emoji, onClose }: { message: string; emoji: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl shadow-2xl px-8 py-7 flex flex-col items-center gap-3 max-w-xs w-full mx-4"
+        style={{ border: "3px solid #f0e6ff", animation: "popModal 0.25s ease-out both" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="text-4xl">{emoji}</div>
+        <p className="text-base font-bold text-gray-700 text-center">{message}</p>
+        <button
+          onClick={onClose}
+          className="mt-1 px-8 py-2.5 rounded-2xl font-black text-white text-sm shadow"
+          style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
+        >OK</button>
+      </div>
+      <style>{`@keyframes popModal { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }`}</style>
+    </div>
+  )
+}
 
 export default function Home() {
   const router = useRouter()
+  const { t } = useLang()
   const [name, setName] = useState("")
-  const [avatar, setAvatar] = useState(AVATARS[0].url)
+  const [avatar, setAvatar] = useState(AVATARS[0])
+  const [prevAvatar, setPrevAvatar] = useState<string | null>(null)
+  const [fading, setFading] = useState(false)
   const [joinId, setJoinId] = useState("")
   const [tab, setTab] = useState<"create" | "join">("create")
+  const [modal, setModal] = useState<{ message: string; emoji: string } | null>(null)
+  const [spinning, setSpinning] = useState(false)
+
+  useEffect(() => {
+    setAvatar(randomAvatar())
+  }, [])
+
+  const reroll = useCallback(() => {
+    setPrevAvatar(avatar)
+    setFading(false)
+    setSpinning(true)
+    setAvatar(randomAvatar())
+    requestAnimationFrame(() => {
+      setFading(true)
+    })
+    setTimeout(() => {
+      setPrevAvatar(null)
+      setFading(false)
+      setSpinning(false)
+    }, 400)
+  }, [avatar])
 
   const go = (roomId: string) => {
-    if (!name.trim()) { alert("Nhập tên trước nhé! 😊"); return }
+    if (!name.trim()) { setModal({ message: t("app.name_required"), emoji: "✏️" }); return }
     router.push(`/room?roomId=${roomId}&name=${encodeURIComponent(name.trim())}&avatar=${encodeURIComponent(avatar)}`)
   }
 
-  const createRoom = () => {
-    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase()
-    go(roomId)
-  }
-
+  const createRoom = () => go(Math.random().toString(36).substring(2, 8).toUpperCase())
   const joinRoom = () => {
-    if (!joinId.trim()) { alert("Nhập mã phòng nhé!"); return }
+    if (!joinId.trim()) { setModal({ message: t("app.code_required"), emoji: "🏠" }); return }
     go(joinId.trim().toUpperCase())
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)" }}>
+    <div
+      className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden"
+      style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)" }}
+    >
+      {modal && <Modal message={modal.message} emoji={modal.emoji} onClose={() => setModal(null)} />}
 
-      {/* Floating decorations */}
-      {FLOATS.map((emoji, i) => (
-        <span
-          key={i}
-          className="absolute select-none pointer-events-none text-2xl opacity-30"
+      {/* Dot pattern overlay */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none"
+        style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+
+      {/* Floating blobs */}
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="absolute rounded-full bg-white/10 pointer-events-none"
           style={{
-            left: `${8 + i * 12}%`,
-            top: `${10 + (i % 3) * 25}%`,
-            animation: `float ${3 + i * 0.4}s ease-in-out infinite alternate`,
-            animationDelay: `${i * 0.3}s`,
-          }}
-        >
-          {emoji}
-        </span>
+            width: `${80 + i * 60}px`, height: `${80 + i * 60}px`,
+            left: `${i * 20}%`, top: `${10 + i * 15}%`,
+            animation: `blobFloat ${4 + i * 0.8}s ease-in-out infinite alternate`,
+            animationDelay: `${i * 0.5}s`,
+          }} />
       ))}
 
-      {/* Bubbles background */}
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="absolute rounded-full opacity-10 bg-white"
-          style={{
-            width: `${60 + i * 40}px`,
-            height: `${60 + i * 40}px`,
-            right: `${5 + i * 8}%`,
-            bottom: `${5 + i * 10}%`,
-            animation: `pulse ${2 + i * 0.5}s ease-in-out infinite alternate`,
-          }}
-        />
-      ))}
-
-      {/* Logo + title */}
-      <div className="flex flex-col items-center mb-6 z-10"
-        style={{ animation: "bounceIn 0.8s ease-out" }}>
-        <div className="relative">
-          <div className="absolute inset-0 rounded-full blur-xl opacity-50 bg-yellow-300 scale-110" />
-          <img
-            src="/logo.png"
-            alt="DrawGuess"
+      {/* ── Logo ── */}
+      <div className="flex flex-col items-center mb-8 z-10" style={{ animation: "fadeDown 0.7s ease-out both" }}>
+        <div className="relative mb-2">
+          <div className="absolute inset-0 rounded-full blur-2xl opacity-40 bg-yellow-300 scale-125" />
+          <img src="/logo.png" alt="DrawGuess"
             className="relative w-36 h-36 object-contain drop-shadow-2xl"
-            style={{ animation: "wiggle 3s ease-in-out infinite" }}
-          />
+            style={{ animation: "wiggle 3s ease-in-out infinite" }} />
         </div>
-        <h1 className="text-6xl font-black mt-2 drop-shadow-lg"
+        <h1 className="text-5xl font-black tracking-tight drop-shadow-lg"
           style={{
             background: "linear-gradient(90deg, #fff 0%, #ffd700 50%, #fff 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            textShadow: "none",
-            letterSpacing: "-1px"
-          }}>
-          DrawGuess
-        </h1>
-        <p className="text-white/80 text-sm font-medium mt-1 tracking-wide">🌸 Vẽ hình đoán chữ cùng bạn bè 🌸</p>
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          }}>DrawGuess</h1>
+        <p className="text-white/70 text-sm mt-1">{t("app.subtitle")}</p>
       </div>
 
-      {/* Card */}
-      <div className="relative z-10 w-full max-w-sm mx-4"
-        style={{ animation: "slideUp 0.6s ease-out 0.2s both" }}>
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 flex flex-col gap-4"
-          style={{ border: "3px solid rgba(255,255,255,0.8)" }}>
+      {/* ── Main card ── */}
+      <div className="relative z-10 w-full max-w-2xl mx-4" style={{ animation: "slideUp 0.6s ease-out 0.15s both" }}>
+        <div className="bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden"
+          style={{ border: "2px solid rgba(255,255,255,0.3)" }}>
 
-          {/* Avatar preview + tên */}
-          <div className="flex items-center gap-3">
-            <div className="relative shrink-0">
-              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-purple-300 shadow-lg"
-                style={{ animation: "pulse 2s ease-in-out infinite" }}>
-                <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+          {/* Top section: avatar + character selection */}
+          <div className="px-10 pt-10 pb-8">
+            <p className="text-center text-white font-black text-xl uppercase tracking-widest mb-8 drop-shadow">
+              {t("app.choose_character")}
+            </p>
+
+            <div className="flex items-center justify-center gap-10">
+              {/* Avatar display */}
+              <div className="flex flex-col items-center gap-3 shrink-0">
+                <div className="relative">
+                  {/* Outer glow ring */}
+                  <div className="absolute inset-0 rounded-full blur-lg opacity-60 bg-purple-300 scale-110" />
+                  <div
+                    className="relative w-44 h-44 rounded-full overflow-hidden shadow-2xl"
+                    style={{
+                      border: "5px solid rgba(255,255,255,0.6)",
+                      background: "linear-gradient(135deg, #c084fc, #a855f7)",
+                    }}
+                  >
+                    {prevAvatar && (
+                      <img
+                        src={prevAvatar}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover"
+                        style={{
+                          opacity: fading ? 0 : 1,
+                          transform: fading ? "scale(0.85) rotate(-8deg)" : "scale(1) rotate(0deg)",
+                          transition: "opacity 0.35s ease, transform 0.35s ease",
+                        }}
+                      />
+                    )}
+                    <img
+                      src={avatar}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                      style={{
+                        opacity: prevAvatar && !fading ? 0 : 1,
+                        transform: prevAvatar && fading ? "scale(1) rotate(0deg)" : prevAvatar ? "scale(0.85) rotate(10deg)" : "scale(1) rotate(0deg)",
+                        transition: "opacity 0.35s ease, transform 0.35s ease",
+                      }}
+                    />
+                  </div>
+                  {/* Reroll button */}
+                  <button
+                    onClick={reroll}
+                    className="absolute -bottom-1 -right-1 w-11 h-11 rounded-full shadow-lg flex items-center justify-center text-white font-black text-lg transition-all hover:scale-110 active:scale-95"
+                    style={{ background: "linear-gradient(135deg, #06b6d4, #0891b2)", border: "3px solid white" }}
+                    title="Random nhân vật khác"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
+                      style={{ animation: spinning ? "spin360 0.35s linear" : "none" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <span className="absolute -bottom-1 -right-1 text-lg">🌸</span>
-            </div>
-            <input
-              className="flex-1 border-2 border-purple-200 rounded-2xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400 text-gray-700 font-medium transition-all"
-              placeholder="Tên của bạn 😊"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && tab === "create" && createRoom()}
-            />
-          </div>
 
-          {/* Chọn avatar */}
-          <div>
-            <p className="text-xs font-bold text-purple-500 mb-2 uppercase tracking-wider">🐰 Chọn nhân vật</p>
-            <div className="grid grid-cols-8 gap-1.5">
-              {AVATARS.map(a => (
-                <button
-                  key={a.id}
-                  title={a.id}
-                  onClick={() => setAvatar(a.url)}
-                  className={`w-10 h-10 rounded-full overflow-hidden border-3 transition-all duration-200
-                    ${avatar === a.url
-                      ? "border-purple-500 scale-125 shadow-lg shadow-purple-300 z-10 relative"
-                      : "border-gray-200 hover:border-purple-300 hover:scale-110"
-                    }`}
-                  style={{ border: avatar === a.url ? "3px solid #a855f7" : "2px solid #e5e7eb" }}
-                >
-                  <img src={a.url} alt={a.id} className="w-full h-full object-cover" />
-                </button>
-              ))}
+              {/* Name input */}
+              <div className="flex flex-col gap-4 flex-1 max-w-xs">
+                <input
+                  className="w-full rounded-2xl px-5 py-3.5 text-lg font-bold outline-none transition-all"
+                  style={{
+                    background: "rgba(255,255,255,0.15)",
+                    border: "2px solid rgba(255,255,255,0.4)",
+                    color: "white",
+                    backdropFilter: "blur(8px)",
+                  }}
+                  placeholder={t("app.name_placeholder")}
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && tab === "create" && createRoom()}
+                  // placeholder style via CSS below
+                />
+              </div>
             </div>
           </div>
 
-          {/* Tab */}
-          <div className="flex gap-2 bg-gray-100 rounded-2xl p-1">
-            <button
-              onClick={() => setTab("create")}
-              className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-200
-                ${tab === "create"
-                  ? "bg-white text-purple-600 shadow-md"
-                  : "text-gray-400 hover:text-gray-600"}`}
-            >
-              🏡 Tạo phòng
-            </button>
-            <button
-              onClick={() => setTab("join")}
-              className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-200
-                ${tab === "join"
-                  ? "bg-white text-purple-600 shadow-md"
-                  : "text-gray-400 hover:text-gray-600"}`}
-            >
-              🐾 Vào phòng
-            </button>
-          </div>
-
-          {tab === "create" ? (
-            <button
-              onClick={createRoom}
-              className="relative overflow-hidden py-3 rounded-2xl font-black text-white text-lg shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
-              style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
-            >
-              <span className="relative z-10">🍭 Tạo phòng mới!</span>
-            </button>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <input
-                className="border-2 border-purple-200 rounded-2xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-400 uppercase font-mono font-bold text-center text-lg tracking-widest text-purple-700"
-                placeholder="CODE"
-                value={joinId}
-                onChange={e => setJoinId(e.target.value.toUpperCase())}
-                onKeyDown={e => e.key === "Enter" && joinRoom()}
-              />
+          {/* Bottom section: tabs + actions */}
+          <div className="px-10 pb-10" style={{ background: "rgba(0,0,0,0.15)" }}>
+            {/* Tab */}
+            <div className="flex gap-2 rounded-2xl p-1 mb-5" style={{ background: "rgba(255,255,255,0.1)" }}>
               <button
-                onClick={joinRoom}
-                className="py-3 rounded-2xl font-black text-white text-lg shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
-                style={{ background: "linear-gradient(135deg, #11998e, #38ef7d)" }}
-              >
-              🐾 Tham gia ngay!
-              </button>
+                onClick={() => setTab("create")}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200"
+                style={tab === "create"
+                  ? { background: "rgba(255,255,255,0.95)", color: "#7c3aed" }
+                  : { color: "rgba(255,255,255,0.6)" }}
+                >🏡 {t("app.create_room")}</button>
+              <button
+                onClick={() => setTab("join")}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200"
+                style={tab === "join"
+                  ? { background: "rgba(255,255,255,0.95)", color: "#7c3aed" }
+                  : { color: "rgba(255,255,255,0.6)" }}
+              >🐾 {t("app.join_room")}</button>
             </div>
-          )}
+
+            {tab === "create" ? (
+              <button
+                onClick={createRoom}
+                className="w-full py-4 rounded-2xl font-black text-purple-700 text-xl shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
+                style={{ background: "rgba(255,255,255,0.95)" }}
+              >
+                <span className="text-2xl">▶</span>
+                {t("app.start")}
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <input
+                  className="w-full rounded-2xl px-5 py-3.5 outline-none font-mono font-black text-center text-2xl tracking-[0.3em] transition-all"
+                  style={{
+                    background: "rgba(255,255,255,0.15)",
+                    border: "2px solid rgba(255,255,255,0.4)",
+                    color: "white",
+                    backdropFilter: "blur(8px)",
+                  }}
+                  placeholder={t("app.code_placeholder")}
+                  value={joinId}
+                  onChange={e => setJoinId(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === "Enter" && joinRoom()}
+                />
+                <button
+                  onClick={joinRoom}
+                  className="w-full py-4 rounded-2xl font-black text-purple-700 text-xl shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
+                  style={{ background: "rgba(255,255,255,0.95)" }}
+                >
+                  <span className="text-2xl">▶</span>
+                  {t("app.join")}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <style>{`
-        @keyframes float {
-          from { transform: translateY(0px) rotate(0deg); }
-          to   { transform: translateY(-20px) rotate(10deg); }
+        input::placeholder { color: rgba(255,255,255,0.5); }
+        @keyframes blobFloat {
+          from { transform: translateY(0) scale(1); }
+          to   { transform: translateY(-30px) scale(1.08); }
         }
         @keyframes wiggle {
-          0%, 100% { transform: rotate(-3deg) scale(1); }
-          50%       { transform: rotate(3deg) scale(1.05); }
+          0%, 100% { transform: rotate(-4deg) scale(1); }
+          50%       { transform: rotate(4deg) scale(1.06); }
         }
-        @keyframes bounceIn {
-          0%   { transform: scale(0.3); opacity: 0; }
-          60%  { transform: scale(1.1); opacity: 1; }
-          100% { transform: scale(1); }
+        @keyframes fadeDown {
+          from { opacity: 0; transform: translateY(-20px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes slideUp {
-          from { transform: translateY(40px); opacity: 0; }
-          to   { transform: translateY(0); opacity: 1; }
+          from { opacity: 0; transform: translateY(30px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes pulse {
-          from { transform: scale(1); }
-          to   { transform: scale(1.05); }
+        @keyframes spin360 {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
         }
       `}</style>
     </div>

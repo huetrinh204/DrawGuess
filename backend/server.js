@@ -31,6 +31,27 @@ function pickTwoWords() {
   return [shuffled[0], shuffled[1]]
 }
 
+// Tính khoảng cách Levenshtein để kiểm tra gần đúng
+function levenshtein(a, b) {
+  const m = a.length, n = b.length
+  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)))
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+  return dp[m][n]
+}
+
+function isCloseGuess(guess, word) {
+  const g = guess.trim().toLowerCase()
+  const w = word.toLowerCase()
+  if (g === w) return false // đúng rồi
+  if (w.length <= 3) return false // từ quá ngắn, không gợi ý
+  const dist = levenshtein(g, w)
+  // Cho phép sai 1-2 ký tự tuỳ độ dài từ
+  const threshold = w.length <= 5 ? 1 : 2
+  return dist <= threshold
+}
+
 function getMaskedWord(word) {
   return word.split("").map(c => c === " " ? " " : "_").join("")
 }
@@ -326,6 +347,10 @@ io.on("connection", (socket) => {
         endRound(roomId)
       }
     } else {
+      // Kiểm tra gần đúng — chỉ thông báo riêng cho người đoán
+      if (room.started && room.word && isCloseGuess(message, room.word)) {
+        socket.emit("close_guess", { message: "Gần đúng rồi! Cố thêm chút nữa 🔥" })
+      }
       io.to(roomId).emit("chat_message", { sender, message, type: "chat" })
     }
   })

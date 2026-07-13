@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { connectSocket, getSocket } from "@/services/socket"
 import { useGameStore } from "@/store/gameStore"
+import { useLang } from "@/contexts/LanguageContext"
 import { Player } from "@/types/game"
 
 const FLOATS = ["🎨", "🖍️", "🌈", "✨", "🍬", "🎪", "🌟", "🦄"]
@@ -11,6 +12,7 @@ const FLOATS = ["🎨", "🖍️", "🌈", "✨", "🍬", "🎪", "🌟", "🦄"
 function RoomContent() {
   const params = useSearchParams()
   const router = useRouter()
+  const { t } = useLang()
   const name = params.get("name") || ""
   const roomId = params.get("roomId") || ""
   const avatar = params.get("avatar") || "🐱"
@@ -129,9 +131,9 @@ function RoomContent() {
           >
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="text-3xl" style={{ animation: "wiggleRoom 2s ease-in-out infinite" }}>🎪</span>
-              <h1 className="text-2xl font-black text-white tracking-tight">Phòng chờ</h1>
+              <h1 className="text-2xl font-black text-white tracking-tight">{t("app.room_title")}</h1>
             </div>
-            <p className="text-white/70 text-xs">Mời bạn bè vào cùng nhé!</p>
+            <p className="text-white/70 text-xs">{t("app.room_subtitle")}</p>
           </div>
 
           <div className="p-6 flex flex-col gap-5">
@@ -141,7 +143,7 @@ function RoomContent() {
               style={{ background: "linear-gradient(135deg, #f0f4ff, #faf0ff)" }}
             >
               <div className="flex flex-col flex-1 min-w-0">
-                <span className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-0.5">Mã phòng</span>
+                <span className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-0.5">{t("app.room_code")}</span>
                 <span className="font-mono font-black text-2xl text-purple-700 tracking-widest">{roomId}</span>
               </div>
               <button
@@ -155,14 +157,14 @@ function RoomContent() {
                   boxShadow: "0 2px 8px rgba(102,126,234,0.4)",
                 }}
               >
-                {copied ? "✔ Copied!" : "Copy"}
+                {copied ? t("app.copied") : t("app.copy")}
               </button>
             </div>
 
             {/* Players */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-sm font-black text-purple-600 uppercase tracking-wider">~ Người chơi</span>
+                <span className="text-sm font-black text-purple-600 uppercase tracking-wider">~ {t("app.players")}</span>
                 <span
                   className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
                   style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
@@ -198,7 +200,7 @@ function RoomContent() {
                         className="text-xs font-bold px-2 py-0.5 rounded-full text-purple-600"
                         style={{ background: "#ede9fe" }}
                       >
-                        bạn
+                        {t("app.you")}
                       </span>
                     )}
                   </li>
@@ -213,7 +215,7 @@ function RoomContent() {
                     <div className="w-11 h-11 rounded-full bg-purple-50 flex items-center justify-center text-xl shrink-0">
                       ?
                     </div>
-                    <span className="text-sm text-gray-400 italic">Đang chờ người chơi...</span>
+                    <span className="text-sm text-gray-400 italic">{t("app.waiting_players")}</span>
                   </li>
                 ))}
               </ul>
@@ -226,7 +228,7 @@ function RoomContent() {
                 style={{ background: "#fef9c3" }}
               >
                 <span className="text-lg">~</span>
-                Cần ít nhất 2 người để bắt đầu
+                {t("app.min_players")}
               </div>
             )}
 
@@ -237,7 +239,7 @@ function RoomContent() {
                 className="relative overflow-hidden py-3.5 rounded-2xl font-black text-white text-lg shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                 style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}
               >
-                Bắt đầu game!
+                {t("app.start_game")}
               </button>
             ) : (
               <div
@@ -252,7 +254,7 @@ function RoomContent() {
                     }} />
                   ))}
                 </span>
-                Chờ chủ phòng bắt đầu...
+                {t("app.waiting_host")}
               </div>
             )}
           </div>
