@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import AudioProvider from "@/components/AudioProvider";
 import { LanguageProvider, useLang } from "@/contexts/LanguageContext";
+import { usePathname } from "next/navigation";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -14,6 +15,8 @@ const inter = Inter({
 
 function LangSwitcher() {
   const { lang, setLang } = useLang()
+  const pathname = usePathname()
+  if (pathname?.startsWith("/game")) return null
   return (
     <button
       onClick={() => setLang(lang === "vi" ? "en" : "vi")}

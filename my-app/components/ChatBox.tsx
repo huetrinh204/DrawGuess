@@ -14,6 +14,7 @@ export default function ChatBox() {
   const mySocketId = useGameStore(s => s.mySocketId)
   const drawerName = useGameStore(s => s.drawerName)
   const roundActive = useGameStore(s => s.roundActive)
+  const players = useGameStore(s => s.players)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const isDrawer = drawerId !== "" && drawerId === mySocketId
@@ -36,12 +37,9 @@ export default function ChatBox() {
     return "bg-gray-100 text-gray-700 px-4 py-2 rounded-2xl rounded-tl-none text-sm"
   }
 
-  const getAvatarEmoji = (sender: string) => {
-    // Simple deterministic emoji based on name
-    const emojis = ["🐰", "🦊", "🐼", "🐨", "🐸", "🐯", "🦁", "🐶"]
-    let hash = 0
-    for (let i = 0; i < sender.length; i++) hash = (hash + sender.charCodeAt(i)) % emojis.length
-    return emojis[hash]
+  const getSenderAvatar = (sender: string) => {
+    const p = players.find(p => p.name === sender)
+    return p?.avatar || ""
   }
 
   return (
@@ -76,8 +74,8 @@ export default function ChatBox() {
           }
           return (
             <div key={i} className="flex items-start gap-2">
-              <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-sm shrink-0 mt-0.5">
-                {getAvatarEmoji(m.sender)}
+              <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-100 shrink-0 mt-0.5 border border-gray-200">
+                <img src={getSenderAvatar(m.sender)} alt={m.sender} className="w-full h-full object-cover" />
               </div>
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-[10px] font-bold text-gray-400 leading-none">{m.sender}</span>
@@ -118,12 +116,18 @@ export default function ChatBox() {
             />
             <button
               onClick={send}
-              className="bg-purple-600 text-white px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 hover:bg-purple-700 transition-colors"
+              className="group relative overflow-hidden px-5 py-2.5 rounded-2xl font-bold text-xs text-white shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
             >
-              {t("app.chat_send")}
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-              </svg>
+              <span className="relative z-10 flex items-center gap-1.5">
+                {t("app.chat_send")}
+                <svg className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </span>
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{ background: "linear-gradient(135deg, #764ba2, #667eea)" }}
+              />
             </button>
           </div>
         )}

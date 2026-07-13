@@ -206,6 +206,12 @@ io.on("connection", (socket) => {
 
     const room = rooms[roomId]
 
+    // Nếu game đã kết thúc (chưa bắt đầu lại), reset scores cho giao diện sạch
+    if (!room.started && room.round === 0 && Object.keys(room.scores).length > 0) {
+      room.scores = {}
+      room.guessed = []
+    }
+
     // Nếu đã có player cùng tên thì update socket id (reconnect / chơi lại)
     const existing = room.players.find(p => p.name === name)
     if (existing) {

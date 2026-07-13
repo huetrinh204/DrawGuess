@@ -111,5 +111,13 @@ export const useGameStore = create<GameStore>((set) => ({
   addScorePopup: (id, name, points) => set(s => ({ scorePopups: [...s.scorePopups, { id, name, points }] })),
   removeScorePopup: (id) => set(s => ({ scorePopups: s.scorePopups.filter(p => p.id !== id) })),
   setShowGameEndSplash: (v) => set({ showGameEndSplash: v }),
-  resetGame: () => set({ gameStarted: false, roundActive: false, gameOver: false, round: 0, messages: [], leaderboard: [], myWord: "", maskedWord: "", choosingWord: false, wordChoices: [], waitingForDrawer: false, closeGuessHint: { key: 0 as number, message: "" }, scorePopups: [], showGameEndSplash: false })
+  resetGame: () => set({
+    roomId: "", playerName: "", players: [], scores: {}, hostId: "", mySocketId: "",
+    drawerId: "", drawerName: "", round: 0, maxRounds: 3,
+    maskedWord: "", myWord: "", gameStarted: false, roundActive: false,
+    timeLeft: 80, messages: [], leaderboard: [], gameOver: false,
+    choosingWord: false, wordChoices: [], waitingForDrawer: false, waitingDrawerName: "",
+    closeGuessHint: { key: 0 as number, message: "" },
+    scorePopups: [], showGameEndSplash: false
+  })
 }))

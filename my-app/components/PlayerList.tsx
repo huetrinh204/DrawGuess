@@ -43,12 +43,22 @@ export default function PlayerList() {
           // tìm popup cho player này (khớp theo tên vì scorePopup dùng playerName)
           const popup = scorePopups.find(sp => sp.name === p.name)
 
+          const showGlow = idx === 0 && (scores[p.id] || 0) > 0
+
           return (
             <div key={p.id} className="relative">
               <div
                 className={`relative flex items-center p-2 rounded-2xl border-2 transition-all ${
                   isDrawing ? "border-teal-400 bg-teal-50" : "border-gray-50 bg-gray-50"
-                }`}
+                } ${showGlow ? "leader-glow" : ""}`}
+                style={showGlow ? {
+                  boxShadow: "0 0 12px rgba(234,179,8,0.3), 0 0 24px rgba(234,179,8,0.15)",
+                  borderColor: "#eab308",
+                  background: "linear-gradient(135deg, #fefce8, #fef9c3)"
+                } : isDrawing ? {
+                  borderColor: "#2dd4bf",
+                  background: "#f0fdfa"
+                } : {}}
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
@@ -89,11 +99,17 @@ export default function PlayerList() {
                 <div
                   key={popup.id}
                   className="absolute top-1/2 -left-2 -translate-x-full -translate-y-1/2 pointer-events-none z-20
-                             flex items-center gap-1 bg-green-500 text-white text-xs font-black
-                             px-2.5 py-1 rounded-xl shadow-lg"
-                  style={{ animation: "playerScorePop 2.2s ease-out both" }}
+                             flex items-center gap-1.5 text-white font-black
+                             px-3 py-1.5 rounded-2xl shadow-xl"
+                  style={{
+                    background: "linear-gradient(135deg, #22c55e, #10b981)",
+                    boxShadow: "0 4px 15px rgba(34,197,94,0.4)",
+                    animation: "playerScorePop 2.4s ease-out both",
+                    fontSize: "13px",
+                  }}
                 >
-                  +{popup.points} 🎉
+                  <span className="text-lg leading-none">🎉</span>
+                  <span>+{popup.points}</span>
                 </div>
               )}
             </div>
@@ -103,22 +119,51 @@ export default function PlayerList() {
 
       {/* Leader banner */}
       {leader && (
-        <div className="shrink-0 m-3 bg-yellow-50 border border-yellow-200 p-3 rounded-2xl flex items-center gap-2">
-          <div className="bg-orange-400 text-white p-1.5 rounded-xl text-sm shrink-0">🏆</div>
+        <div className="shrink-0 m-3 p-3 rounded-2xl flex items-center gap-2"
+          style={{
+            background: "linear-gradient(135deg, #fefce8, #fef9c3)",
+            border: "2px solid #eab308",
+            boxShadow: "0 0 12px rgba(234,179,8,0.2)",
+            animation: "leaderPulse 2s ease-in-out infinite",
+          }}
+        >
+          <div className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white p-1.5 rounded-xl text-sm shrink-0"
+            style={{ animation: "leaderBounce 1.5s ease-in-out infinite" }}
+          >🏆</div>
           <div className="flex flex-col leading-tight min-w-0">
-            <span className="text-orange-800 font-bold text-xs truncate">{leader.name} {t("app.leader_title")}</span>
-            <span className="text-orange-500 text-[10px]">{scores[leader.id] || 0} {t("app.leader_score")}</span>
+            <span className="font-bold text-xs truncate" style={{ color: "#854d0e" }}>{leader.name} {t("app.leader_title")}</span>
+            <span className="text-[10px]" style={{ color: "#a16207" }}>⭐ {scores[leader.id] || 0} {t("app.leader_score")}</span>
           </div>
+          <div className="ml-auto text-sm opacity-60">👑</div>
         </div>
       )}
 
       <style>{`
         @keyframes playerScorePop {
-          0%   { opacity: 0; transform: translate(-100%, -50%) scale(0.7); }
-          15%  { opacity: 1; transform: translate(-100%, -50%) scale(1.1); }
+          0%   { opacity: 0; transform: translate(-100%, -50%) scale(0.5); }
+          15%  { opacity: 1; transform: translate(-100%, -50%) scale(1.2); }
           30%  { transform: translate(-100%, -60%) scale(1); }
           70%  { opacity: 1; transform: translate(-100%, -70%); }
-          100% { opacity: 0; transform: translate(-100%, -85%); }
+          100% { opacity: 0; transform: translate(-100%, -85%) scale(0.8); }
+        }
+
+        .leader-glow {
+          animation: leaderGlow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes leaderGlow {
+          from { box-shadow: 0 0 8px rgba(234,179,8,0.2), 0 0 16px rgba(234,179,8,0.1); }
+          to   { box-shadow: 0 0 16px rgba(234,179,8,0.4), 0 0 32px rgba(234,179,8,0.2); }
+        }
+
+        @keyframes leaderPulse {
+          0%, 100% { transform: scale(1); }
+          50%       { transform: scale(1.02); }
+        }
+
+        @keyframes leaderBounce {
+          0%, 100% { transform: translateY(0); }
+          50%       { transform: translateY(-4px); }
         }
       `}</style>
     </div>
