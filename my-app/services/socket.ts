@@ -2,7 +2,7 @@ import { io, Socket } from "socket.io-client"
 
 let socket: Socket | null = null
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ""
 
 export function getSocket(): Socket {
   if (!socket) {

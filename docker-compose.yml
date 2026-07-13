@@ -1,17 +1,25 @@
 services:
+  proxy:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - drawguess-net
+
   backend:
     build: ./backend
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
     networks:
       - drawguess-net
 
   frontend:
     build: ./my-app
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
+    expose:
+      - "3000"
     depends_on:
       - backend
     networks:
