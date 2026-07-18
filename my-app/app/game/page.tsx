@@ -9,6 +9,7 @@ import Canvas from "@/components/Canvas"
 import ChatBox from "@/components/ChatBox"
 import PlayerList from "@/components/PlayerList"
 import { ChatMessage, RoundStartPayload } from "@/types/game"
+import { Palette, DoorOpen, Home, Flame, Target, Search, Trophy, Crown, RefreshCw, RotateCcw } from "lucide-react"
 
 // ── Game End Splash (intermediate screen) ────────────────────────────
 function GameEndSplash({ onDone }: { onDone: () => void }) {
@@ -24,25 +25,28 @@ function GameEndSplash({ onDone }: { onDone: () => void }) {
       style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)" }}
     >
       {/* Floating particles */}
-      {["🎨","🎉","✨","🌟","🎊","🏆","🎈","💫","🌈","🎯"].map((e, i) => (
-        <span
+      {[...Array(10)].map((_, i) => (
+        <div
           key={i}
-          className="absolute select-none pointer-events-none text-3xl"
+          className="absolute select-none pointer-events-none rounded-full bg-white/30"
           style={{
+            width: `${10 + (i % 4) * 8}px`,
+            height: `${10 + (i % 4) * 8}px`,
             left: `${5 + i * 10}%`,
             top: `${10 + (i % 4) * 20}%`,
-            opacity: 0.5,
             animation: `splashFloat ${2 + i * 0.3}s ease-in-out infinite alternate`,
             animationDelay: `${i * 0.15}s`,
           }}
-        >{e}</span>
+        />
       ))}
 
       <div
         className="flex flex-col items-center gap-6 text-center"
         style={{ animation: "splashIn 0.6s ease-out both" }}
       >
-        <div className="text-7xl" style={{ animation: "splashBounce 1s ease-in-out infinite alternate" }}>🏁</div>
+        <div style={{ animation: "splashBounce 1s ease-in-out infinite alternate" }}>
+          <Trophy className="w-20 h-20 text-yellow-300 drop-shadow-lg" />
+        </div>
         <div>
           <h1 className="text-5xl font-black text-white drop-shadow-lg tracking-tight">
             {t("app.game_over")}
@@ -96,7 +100,7 @@ function CloseGuessToast() {
       style={{ transform: "translateX(-50%)", animation: "toastPop 2.8s ease-out forwards" }}
     >
       <div className="bg-amber-400 text-white font-black text-sm px-5 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 whitespace-nowrap">
-        🔥 {hint.message}
+        <Flame className="w-4 h-4" /> {hint.message}
       </div>
       <style>{`
         @keyframes toastPop {
@@ -123,7 +127,7 @@ function WordChoiceOverlay() {
   return (
     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20 rounded-3xl">
       <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm w-full mx-4 border border-purple-100">
-        <div className="text-3xl mb-2">🎯</div>
+        <div className="flex justify-center mb-2"><Target className="w-10 h-10 text-purple-500" /></div>
         <p className="text-lg font-black text-gray-800 mb-1">{t("app.game_choose_title")}</p>
         <p className="text-sm text-gray-400 mb-6">{t("app.game_choose_time")}</p>
         <div className="flex flex-col gap-3">
@@ -303,7 +307,9 @@ function GameContent() {
                         <img src={player.avatar} alt={player.name} width={64} height={64} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </div>
                       {slot.rank === 1 && (
-                        <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-2xl">👑</span>
+                        <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                          <Crown className="w-6 h-6 text-yellow-400 drop-shadow" />
+                        </div>
                       )}
                     </div>
                     {/* Podium block */}
@@ -343,16 +349,18 @@ function GameContent() {
                   store.resetGame()
                   router.push(`/room?roomId=${roomId}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`)
                 }}
-                className="flex-1 py-3 rounded-2xl font-black text-white text-sm shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+                className="flex-1 py-3 rounded-2xl font-black text-white text-sm shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
               >
+                <RefreshCw className="w-4 h-4" />
                 {t("app.game_over_play_again")}
               </button>
               <button
                 onClick={() => { store.resetGame(); router.push("/") }}
-                className="flex-1 py-3 rounded-2xl font-black text-sm shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
+                className="flex-1 py-3 rounded-2xl font-black text-sm shadow-md transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                 style={{ background: "#f3f0ff", color: "#7c3aed", border: "2px solid #ddd6fe" }}
               >
+                <Home className="w-4 h-4" />
                 {t("app.game_over_back_home")}
               </button>
             </div>
@@ -383,7 +391,7 @@ function GameContent() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="bg-gradient-to-br from-pink-400 to-purple-500 p-1.5 rounded-xl">
-              <span className="text-white text-lg">🎨</span>
+              <Palette className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-black text-pink-500">DrawGuess</span>
           </div>
@@ -421,16 +429,16 @@ function GameContent() {
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 px-4 py-1.5 rounded-2xl">
-            <span className="text-base">🏠</span>
-            <span className="text-sm font-semibold text-orange-800">
-              {t("app.room_code_label")}: <span className="font-black text-orange-900 tracking-wider">{roomId}</span>
-            </span>
-          </div>
+              <Home className="w-4 h-4 text-orange-500" />
+              <span className="text-sm font-semibold text-orange-800">
+                {t("app.room_code_label")}: <span className="font-black text-orange-900 tracking-wider">{roomId}</span>
+              </span>
+            </div>
           <button
             onClick={() => { store.resetGame(); router.push("/") }}
             className="flex items-center gap-1.5 bg-red-50 text-red-500 px-4 py-1.5 rounded-2xl font-bold text-sm border border-red-100 hover:bg-red-100 transition-colors"
           >
-            🚪 {t("app.leave")}
+            <DoorOpen className="w-4 h-4" /> {t("app.leave")}
           </button>
         </div>
       </div>
@@ -447,7 +455,7 @@ function GameContent() {
             <div className={`shrink-0 px-4 py-2.5 flex items-center justify-center relative ${isDrawer ? "bg-[#F6AD55]" : "bg-[#9333EA]"}`}>
               {isDrawer ? (
                 <div className="flex items-center gap-3 text-white">
-                  <span>🎯</span>
+                  <Target className="w-5 h-5" />
                   <span className="font-bold">{t("app.drawer_hint")}</span>
                   <div className="bg-white px-5 py-1 rounded-full text-orange-500 font-black text-lg tracking-[0.15em] uppercase shadow-sm">
                     {store.myWord || "..."}
@@ -462,7 +470,7 @@ function GameContent() {
                     </span>
                   ) : store.roundActive ? (
                     <>
-                      <span>🔍</span>
+                      <Search className="w-5 h-5" />
                       <span className="font-bold">{t("app.guessing")}</span>
                       <div className="flex gap-1.5">
                         {store.maskedWord.replace(/ /g, "").split("").map((ch, i) => (

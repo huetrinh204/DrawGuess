@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react"
 import { getSocket } from "@/services/socket"
 import { useLang } from "@/contexts/LanguageContext"
 import { DrawData } from "@/types/game"
+import { Paintbrush2, Eraser, Undo2, Trash2, Radio } from "lucide-react"
 
 interface Props {
   isDrawer: boolean
@@ -119,7 +120,7 @@ export default function Canvas({ isDrawer }: Props) {
       >
         {/* LIVE badge */}
         <div className="absolute top-4 right-4 bg-purple-50 border border-purple-100 px-3 py-1 rounded-full flex items-center gap-2 z-10 pointer-events-none">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse" />
           <span className="text-[10px] font-bold text-purple-600">{t("app.canvas_live")}</span>
         </div>
 
@@ -157,18 +158,14 @@ export default function Canvas({ isDrawer }: Props) {
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${activeTool === "brush" ? "bg-purple-600 text-white shadow" : "text-gray-400 hover:bg-gray-100"}`}
                 title={t("app.canvas_brush")}
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
-                </svg>
+                <Paintbrush2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setActiveTool("eraser")}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${activeTool === "eraser" ? "bg-purple-600 text-white shadow" : "text-gray-400 hover:bg-gray-100"}`}
                 title={t("app.canvas_eraser")}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Eraser className="w-4 h-4" />
               </button>
             </div>
 
@@ -202,13 +199,13 @@ export default function Canvas({ isDrawer }: Props) {
                 onClick={handleUndo}
                 className="flex items-center gap-1.5 bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-xl font-bold text-xs border border-yellow-200 hover:bg-yellow-200 transition-colors"
               >
-                ↩ {t("app.canvas_undo")}
+                <Undo2 className="w-3.5 h-3.5" /> {t("app.canvas_undo")}
               </button>
               <button
                 onClick={handleClear}
                 className="flex items-center gap-1.5 bg-red-100 text-red-600 px-3 py-1.5 rounded-xl font-bold text-xs border border-red-200 hover:bg-red-200 transition-colors"
               >
-                🗑 {t("app.canvas_clear")}
+                <Trash2 className="w-3.5 h-3.5" /> {t("app.canvas_clear")}
               </button>
             </div>
 

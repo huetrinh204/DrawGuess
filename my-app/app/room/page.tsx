@@ -6,8 +6,34 @@ import { connectSocket, getSocket } from "@/services/socket"
 import { useGameStore } from "@/store/gameStore"
 import { useLang } from "@/contexts/LanguageContext"
 import { Player } from "@/types/game"
+import { Copy, Check, Crown, Gamepad2, Play, Clock, HelpCircle } from "lucide-react"
 
-const FLOATS = ["🎨", "🖍️", "🌈", "✨", "🍬", "🎪", "🌟", "🦄"]
+
+function PlayerAvatar({ src, name }: { src: string; name: string }) {
+  const [error, setError] = useState(false)
+
+  console.log(`🖼️ PlayerAvatar - name: "${name}", src: "${src}", error: ${error}`)
+
+  return (
+    <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-purple-200 shadow-sm">
+      {error ? (
+        <div className="w-full h-full flex items-center justify-center bg-purple-50 text-purple-400">
+          <HelpCircle className="w-5 h-5" />
+        </div>
+      ) : (
+        <img
+          src={src}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            console.log(`❌ Avatar load error for "${name}": ${src}`)
+            setError(true)
+          }}
+        />
+      )}
+    </div>
+  )
+}
 
 function RoomContent() {
   const params = useSearchParams()
@@ -16,6 +42,8 @@ function RoomContent() {
   const name = params.get("name") || ""
   const roomId = params.get("roomId") || ""
   const avatar = params.get("avatar") || "🐱"
+
+  console.log("🔍 Room page - Avatar from URL:", avatar)
 
   const setRoom = useGameStore(s => s.setRoom)
   const setPlayers = useGameStore(s => s.setPlayers)
@@ -46,6 +74,8 @@ function RoomContent() {
     }
 
     socket.on("room_update", ({ players, scores, hostId }: { players: Player[]; scores: Record<string, number>; hostId: string }) => {
+      console.log("🔍 Room update - Players:", players)
+      players.forEach(p => console.log(`  - ${p.name}: avatar = "${p.avatar}"`))
       setLocalPlayers(players)
       setPlayers(players, scores, hostId)
     })
@@ -84,20 +114,20 @@ function RoomContent() {
       className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden"
       style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)" }}
     >
-      {/* Floating decorations */}
-      {FLOATS.map((emoji, i) => (
-        <span
+      {/* Floating decorations — geometric shapes instead of emoji */}
+      {[...Array(8)].map((_, i) => (
+        <div
           key={i}
-          className="absolute select-none pointer-events-none text-2xl opacity-25"
+          className="absolute select-none pointer-events-none opacity-20 rounded-full bg-white"
           style={{
+            width: `${12 + (i % 3) * 8}px`,
+            height: `${12 + (i % 3) * 8}px`,
             left: `${6 + i * 12}%`,
             top: `${8 + (i % 4) * 20}%`,
             animation: `floatRoom ${3 + i * 0.5}s ease-in-out infinite alternate`,
             animationDelay: `${i * 0.4}s`,
           }}
-        >
-          {emoji}
-        </span>
+        />
       ))}
 
       {/* Bubble blobs */}
@@ -130,7 +160,7 @@ function RoomContent() {
             style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
           >
             <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="text-3xl" style={{ animation: "wiggleRoom 2s ease-in-out infinite" }}>🎪</span>
+              <Gamepad2 className="w-7 h-7 text-white" style={{ animation: "wiggleRoom 2s ease-in-out infinite" }} />
               <h1 className="text-2xl font-black text-white tracking-tight">{t("app.room_title")}</h1>
             </div>
             <p className="text-white/70 text-xs">{t("app.room_subtitle")}</p>
@@ -148,7 +178,7 @@ function RoomContent() {
               </div>
               <button
                 onClick={copyId}
-                className="shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all duration-200 active:scale-95"
+                className="shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all duration-200 active:scale-95 flex items-center gap-1.5"
                 style={{
                   background: copied
                     ? "linear-gradient(135deg, #22c55e, #16a34a)"
@@ -157,6 +187,7 @@ function RoomContent() {
                   boxShadow: "0 2px 8px rgba(102,126,234,0.4)",
                 }}
               >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copied ? t("app.copied") : t("app.copy")}
               </button>
             </div>
@@ -187,11 +218,11 @@ function RoomContent() {
                     }}
                   >
                     <div className="relative shrink-0">
-                      <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-purple-200 shadow-sm">
-                        <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      </div>
+                      <PlayerAvatar src={p.avatar} name={p.name} />
                       {p.id === hostId && (
-                        <span className="absolute -top-1 -right-1 text-sm">👑</span>
+                        <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
+                          <Crown className="w-2.5 h-2.5 text-white" />
+                        </div>
                       )}
                     </div>
                     <span className="font-bold text-gray-700 flex-1 text-sm">{p.name}</span>
@@ -212,8 +243,8 @@ function RoomContent() {
                     key={`empty-${i}`}
                     className="flex items-center gap-3 rounded-2xl px-3 py-2.5 border-2 border-dashed border-purple-200"
                   >
-                    <div className="w-11 h-11 rounded-full bg-purple-50 flex items-center justify-center text-xl shrink-0">
-                      ?
+                    <div className="w-11 h-11 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
+                      <HelpCircle className="w-5 h-5 text-purple-400" />
                     </div>
                     <span className="text-sm text-gray-400 italic">{t("app.waiting_players")}</span>
                   </li>
@@ -227,7 +258,7 @@ function RoomContent() {
                 className="flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-amber-700"
                 style={{ background: "#fef9c3" }}
               >
-                <span className="text-lg">~</span>
+                <Clock className="w-4 h-4 text-amber-500" />
                 {t("app.min_players")}
               </div>
             )}
@@ -236,9 +267,10 @@ function RoomContent() {
               <button
                 onClick={startGame}
                 disabled={players.length < 2}
-                className="relative overflow-hidden py-3.5 rounded-2xl font-black text-white text-lg shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="relative overflow-hidden py-3.5 rounded-2xl font-black text-white text-lg shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}
               >
+                <Play className="w-5 h-5 fill-white" />
                 {t("app.start_game")}
               </button>
             ) : (

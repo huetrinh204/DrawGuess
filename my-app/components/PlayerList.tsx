@@ -1,7 +1,24 @@
 "use client"
 
+import { useState } from "react"
 import { useGameStore } from "@/store/gameStore"
 import { useLang } from "@/contexts/LanguageContext"
+import { Users, Pencil, Trophy, Star, Crown, Medal, PartyPopper, HelpCircle } from "lucide-react"
+
+function PlayerAvatar({ src, name, size = "w-10 h-10" }: { src: string; name: string; size?: string }) {
+  const [error, setError] = useState(false)
+  return (
+    <div className={`${size} rounded-full overflow-hidden bg-orange-100 border-2 border-white shadow-sm`}>
+      {error ? (
+        <div className="w-full h-full flex items-center justify-center bg-purple-50 text-purple-400">
+          <HelpCircle className="w-5 h-5" />
+        </div>
+      ) : (
+        <img src={src || ""} alt={name} width={40} height={40} className="w-full h-full object-cover" onError={() => setError(true)} referrerPolicy="no-referrer" />
+      )}
+    </div>
+  )
+}
 
 export default function PlayerList() {
   const { t } = useLang()
@@ -15,9 +32,9 @@ export default function PlayerList() {
   const leader = sorted[0]
 
   const medalIcon = (rank: number) => {
-    if (rank === 0) return "🥇"
-    if (rank === 1) return "🥈"
-    if (rank === 2) return "🥉"
+    if (rank === 0) return <Medal className="w-5 h-5 text-yellow-500" />
+    if (rank === 1) return <Medal className="w-5 h-5 text-slate-400" />
+    if (rank === 2) return <Medal className="w-5 h-5 text-orange-400" />
     return null
   }
 
@@ -26,9 +43,7 @@ export default function PlayerList() {
       {/* Header */}
       <div className="bg-[#9333EA] px-4 py-3 flex items-center justify-between text-white shrink-0">
         <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 opacity-80" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-          </svg>
+          <Users className="w-4 h-4 opacity-80" />
           <span className="font-bold text-sm">{t("app.players_title")}</span>
         </div>
         <span className="bg-purple-400/50 px-2 py-0.5 rounded-full text-[10px] font-bold">{players.length}</span>
@@ -62,14 +77,16 @@ export default function PlayerList() {
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-orange-100 border-2 border-white shadow-sm">
-                    <img src={p.avatar || ""} alt={p.name} width={40} height={40} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  </div>
+                  <PlayerAvatar src={p.avatar} name={p.name} />
                   {isDrawing && (
-                    <div className="absolute -bottom-1 -right-1 bg-teal-500 text-white rounded-full w-5 h-5 flex items-center justify-center border-2 border-white text-[8px]">✏️</div>
+                    <div className="absolute -bottom-1 -right-1 bg-teal-500 text-white rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
+                      <Pencil className="w-2.5 h-2.5" />
+                    </div>
                   )}
                   {idx === 0 && (
-                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px]">👑</div>
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                      <Crown className="w-4 h-4 text-yellow-400 drop-shadow" />
+                    </div>
                   )}
                 </div>
 
@@ -80,14 +97,14 @@ export default function PlayerList() {
                     {isMe && <span className="text-[9px] text-purple-400 font-medium shrink-0">({t("app.you")})</span>}
                   </div>
                   <div className="text-[10px] text-gray-400 font-medium flex items-center gap-1 mt-0.5">
-                    ⭐ {score} {t("app.score")}
+                    <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> {score} {t("app.score")}
                   </div>
                 </div>
 
                 {/* Rank */}
                 <div className="shrink-0 ml-1">
                   {medalIcon(idx) ? (
-                    <span className="text-base">{medalIcon(idx)}</span>
+                    medalIcon(idx)
                   ) : (
                     <span className="text-sm font-black text-gray-300">{idx + 1}</span>
                   )}
@@ -108,7 +125,7 @@ export default function PlayerList() {
                     fontSize: "13px",
                   }}
                 >
-                  <span className="text-lg leading-none">🎉</span>
+                  <PartyPopper className="w-4 h-4" />
                   <span>+{popup.points}</span>
                 </div>
               )}
@@ -127,14 +144,14 @@ export default function PlayerList() {
             animation: "leaderPulse 2s ease-in-out infinite",
           }}
         >
-          <div className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white p-1.5 rounded-xl text-sm shrink-0"
+          <div className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white p-1.5 rounded-xl shrink-0"
             style={{ animation: "leaderBounce 1.5s ease-in-out infinite" }}
-          >🏆</div>
+          ><Trophy className="w-4 h-4" /></div>
           <div className="flex flex-col leading-tight min-w-0">
             <span className="font-bold text-xs truncate" style={{ color: "#854d0e" }}>{leader.name} {t("app.leader_title")}</span>
-            <span className="text-[10px]" style={{ color: "#a16207" }}>⭐ {scores[leader.id] || 0} {t("app.leader_score")}</span>
+            <span className="text-[10px] flex items-center gap-1" style={{ color: "#a16207" }}><Star className="w-3 h-3 fill-yellow-500 text-yellow-500" /> {scores[leader.id] || 0} {t("app.leader_score")}</span>
           </div>
-          <div className="ml-auto text-sm opacity-60">👑</div>
+          <div className="ml-auto text-purple-300 opacity-60"><Crown className="w-4 h-4" /></div>
         </div>
       )}
 

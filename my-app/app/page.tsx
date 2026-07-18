@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useLang } from "@/contexts/LanguageContext"
+import { RefreshCw, HomeIcon, Footprints, Play, AlertCircle, KeyRound } from "lucide-react"
 
 const AVATARS = [
   "/avatars/bo_1_avatar_01.png", "/avatars/bo_1_avatar_02.png", "/avatars/bo_1_avatar_03.png",
@@ -31,7 +32,9 @@ function Modal({ message, emoji, onClose }: { message: string; emoji: string; on
         style={{ border: "3px solid #f0e6ff", animation: "popModal 0.25s ease-out both" }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="text-4xl">{emoji}</div>
+        <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+          {emoji === "pencil" ? <AlertCircle className="w-6 h-6 text-purple-500" /> : <KeyRound className="w-6 h-6 text-purple-500" />}
+        </div>
         <p className="text-base font-bold text-gray-700 text-center">{message}</p>
         <button
           onClick={onClose}
@@ -76,13 +79,13 @@ export default function Home() {
   }, [avatar])
 
   const go = (roomId: string) => {
-    if (!name.trim()) { setModal({ message: t("app.name_required"), emoji: "✏️" }); return }
+    if (!name.trim()) { setModal({ message: t("app.name_required"), emoji: "pencil" }); return }
     router.push(`/room?roomId=${roomId}&name=${encodeURIComponent(name.trim())}&avatar=${encodeURIComponent(avatar)}`)
   }
 
   const createRoom = () => go(Math.random().toString(36).substring(2, 8).toUpperCase())
   const joinRoom = () => {
-    if (!joinId.trim()) { setModal({ message: t("app.code_required"), emoji: "🏠" }); return }
+    if (!joinId.trim()) { setModal({ message: t("app.code_required"), emoji: "home" }); return }
     go(joinId.trim().toUpperCase())
   }
 
@@ -110,18 +113,20 @@ export default function Home() {
 
       {/* ── Logo ── */}
       <div className="flex flex-col items-center mb-8 z-10" style={{ animation: "fadeDown 0.7s ease-out both" }}>
-        <div className="relative mb-2">
-          <div className="absolute inset-0 rounded-full blur-2xl opacity-40 bg-yellow-300 scale-125" />
-          <img src="/logo.png" alt="DrawGuess"
-            className="relative w-36 h-36 object-contain drop-shadow-2xl"
-            style={{ animation: "wiggle 3s ease-in-out infinite" }} />
+        <div className="flex items-center gap-4">
+          <div className="relative shrink-0">
+            <div className="absolute inset-0 rounded-full blur-2xl opacity-40 bg-yellow-300 scale-125" />
+            <img src="/logo.png" alt="DrawGuess"
+              className="relative w-32 h-32 object-contain drop-shadow-2xl"
+              style={{ animation: "wiggle 3s ease-in-out infinite" }} />
+          </div>
+          <h1 className="text-5xl font-black tracking-tight drop-shadow-lg"
+            style={{
+              background: "linear-gradient(90deg, #fff 0%, #ffd700 50%, #fff 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            }}>DrawGuess</h1>
         </div>
-        <h1 className="text-5xl font-black tracking-tight drop-shadow-lg"
-          style={{
-            background: "linear-gradient(90deg, #fff 0%, #ffd700 50%, #fff 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          }}>DrawGuess</h1>
-        <p className="text-white/70 text-sm mt-1">{t("app.subtitle")}</p>
+        <p className="text-white/70 text-sm mt-2">{t("app.subtitle")}</p>
       </div>
 
       {/* ── Main card ── */}
@@ -178,14 +183,10 @@ export default function Home() {
                     style={{ background: "linear-gradient(135deg, #06b6d4, #0891b2)", border: "3px solid white" }}
                     title="Random nhân vật khác"
                   >
-                    <svg
+                    <RefreshCw
                       className="w-5 h-5"
-                      fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
                       style={{ animation: spinning ? "spin360 0.35s linear" : "none" }}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round"
-                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                    </svg>
+                    />
                   </button>
                 </div>
               </div>
@@ -216,18 +217,18 @@ export default function Home() {
             <div className="flex gap-2 rounded-2xl p-1 mb-5" style={{ background: "rgba(255,255,255,0.1)" }}>
               <button
                 onClick={() => setTab("create")}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200"
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2"
                 style={tab === "create"
                   ? { background: "rgba(255,255,255,0.95)", color: "#7c3aed" }
                   : { color: "rgba(255,255,255,0.6)" }}
-                >🏡 {t("app.create_room")}</button>
+                ><HomeIcon className="w-4 h-4" /> {t("app.create_room")}</button>
               <button
                 onClick={() => setTab("join")}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200"
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2"
                 style={tab === "join"
                   ? { background: "rgba(255,255,255,0.95)", color: "#7c3aed" }
                   : { color: "rgba(255,255,255,0.6)" }}
-              >🐾 {t("app.join_room")}</button>
+              ><Footprints className="w-4 h-4" /> {t("app.join_room")}</button>
             </div>
 
             {tab === "create" ? (
@@ -236,7 +237,7 @@ export default function Home() {
                 className="w-full py-4 rounded-2xl font-black text-purple-700 text-xl shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
                 style={{ background: "rgba(255,255,255,0.95)" }}
               >
-                <span className="text-2xl">▶</span>
+                <Play className="w-6 h-6 fill-purple-700" />
                 {t("app.start")}
               </button>
             ) : (
@@ -259,7 +260,7 @@ export default function Home() {
                   className="w-full py-4 rounded-2xl font-black text-purple-700 text-xl shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
                   style={{ background: "rgba(255,255,255,0.95)" }}
                 >
-                  <span className="text-2xl">▶</span>
+                  <Play className="w-6 h-6 fill-purple-700" />
                   {t("app.join")}
                 </button>
               </div>

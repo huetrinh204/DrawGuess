@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useGameStore } from "@/store/gameStore"
 import { useLang } from "@/contexts/LanguageContext"
 import { getSocket } from "@/services/socket"
+import { MessageCircle, Send, Pencil } from "lucide-react"
 
 export default function ChatBox() {
   const { t } = useLang()
@@ -47,10 +48,7 @@ export default function ChatBox() {
       {/* Header */}
       <div className="bg-pink-500 px-4 py-3 flex items-center justify-between text-white shrink-0">
         <div className="flex items-center gap-2 font-bold text-sm">
-          <svg className="w-4 h-4 opacity-80" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
-            <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
-          </svg>
+          <MessageCircle className="w-4 h-4 opacity-80" />
           {t("app.chat_title")}
         </div>
         <span className="text-[10px] opacity-80">
@@ -98,7 +96,9 @@ export default function ChatBox() {
         {isDrawer ? (
           <div className="bg-orange-50 border border-orange-100 p-3 rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-base">🎨</div>
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                <Pencil className="w-4 h-4 text-orange-500" />
+              </div>
               <div className="flex flex-col leading-tight">
                 <span className="text-orange-800 font-bold text-xs">{t("app.chat_drawer_info")}</span>
                 <span className="text-orange-400 text-[10px]">{t("app.chat_drawer_sub")}</span>
@@ -121,9 +121,7 @@ export default function ChatBox() {
             >
               <span className="relative z-10 flex items-center gap-1.5">
                 {t("app.chat_send")}
-                <svg className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
+                <Send className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </span>
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                 style={{ background: "linear-gradient(135deg, #764ba2, #667eea)" }}
