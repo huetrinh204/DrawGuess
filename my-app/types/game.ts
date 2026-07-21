@@ -2,12 +2,14 @@ export interface Player {
   id: string
   name: string
   avatar: string
+  connected?: boolean
 }
 
 export interface ChatMessage {
   sender: string
   message: string
   type: "chat" | "system" | "correct" | "wrong"
+  avatar?: string
 }
 
 export interface DrawData {
@@ -27,7 +29,27 @@ export interface RoundStartPayload {
   maskedWord: string
   wordLength: number
   timeLimit: number
+  deadline?: number
   myWord?: string   // chỉ người vẽ nhận
+}
+
+export type GamePhase = "LOBBY" | "CHOOSING" | "DRAWING" | "ROUND_END" | "GAME_OVER"
+
+export interface GameSnapshotPayload {
+  phase: GamePhase
+  players: Player[]
+  scores: Record<string, number>
+  hostId: string
+  drawerId: string
+  drawerName: string
+  round: number
+  maxRounds: number
+  maskedWord: string
+  deadline: number
+  timeLimit: number
+  wordChoices: string[]
+  myWord?: string
+  leaderboard?: { name: string; score: number; avatar: string }[]
 }
 
 export interface GameState {

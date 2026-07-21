@@ -60,7 +60,8 @@ export default function Home() {
   const [spinning, setSpinning] = useState(false)
 
   useEffect(() => {
-    setAvatar(randomAvatar())
+    const frame = requestAnimationFrame(() => setAvatar(randomAvatar()))
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   const reroll = useCallback(() => {

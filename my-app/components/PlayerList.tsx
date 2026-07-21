@@ -1,35 +1,47 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useGameStore } from "@/store/gameStore"
 import { useLang } from "@/contexts/LanguageContext"
-import { Users, Pencil, Trophy, Star, Crown, Medal, PartyPopper, HelpCircle } from "lucide-react"
-
-function PlayerAvatar({ src, name, size = "w-10 h-10" }: { src: string; name: string; size?: string }) {
-  const [error, setError] = useState(false)
-  return (
-    <div className={`${size} rounded-full overflow-hidden bg-orange-100 border-2 border-white shadow-sm`}>
-      {error ? (
-        <div className="w-full h-full flex items-center justify-center bg-purple-50 text-purple-400">
-          <HelpCircle className="w-5 h-5" />
-        </div>
-      ) : (
-        <img src={src || ""} alt={name} width={40} height={40} className="w-full h-full object-cover" onError={() => setError(true)} referrerPolicy="no-referrer" />
-      )}
-    </div>
-  )
-}
+import { Users, Pencil, Trophy, Star, Crown, Medal, PartyPopper } from "lucide-react"
+import PlayerAvatar from "@/components/PlayerAvatar"
+import InteractiveAvatar from "@/components/radial-menu/InteractiveAvatar"
 
 export default function PlayerList() {
   const { t } = useLang()
   const players = useGameStore(s => s.players)
   const scores = useGameStore(s => s.scores)
   const drawerId = useGameStore(s => s.drawerId)
-  const mySocketId = useGameStore(s => s.mySocketId)
+  const myPlayerId = useGameStore(s => s.myPlayerId)
   const scorePopups = useGameStore(s => s.scorePopups)
 
-  const sorted = [...players].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
+  const sorted = [...players].sort(
+    (a, b) => (scores[b.id] || 0) - (scores[a.id] || 0) || a.name.localeCompare(b.name)
+  )
   const leader = sorted[0]
+  const leaderScore = leader ? (scores[leader.id] || 0) : 0
+  const leaderId = leader?.id ?? ""
+
+  const prevLeaderIdRef = useRef<string>("")
+  const [leaderJustChanged, setLeaderJustChanged] = useState<string>("")
+
+  useEffect(() => {
+    if (!leaderId || leaderScore <= 0) {
+      prevLeaderIdRef.current = ""
+      const clearTimer = setTimeout(() => setLeaderJustChanged(""), 0)
+      return () => clearTimeout(clearTimer)
+    }
+    if (prevLeaderIdRef.current && prevLeaderIdRef.current !== leaderId) {
+      prevLeaderIdRef.current = leaderId
+      const showTimer = setTimeout(() => setLeaderJustChanged(leaderId), 0)
+      const clearTimer = setTimeout(() => setLeaderJustChanged(""), 800)
+      return () => {
+        clearTimeout(showTimer)
+        clearTimeout(clearTimer)
+      }
+    }
+    prevLeaderIdRef.current = leaderId
+  }, [leaderId, leaderScore])
 
   const medalIcon = (rank: number) => {
     if (rank === 0) return <Medal className="w-5 h-5 text-yellow-500" />
@@ -53,37 +65,39 @@ export default function PlayerList() {
       <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {sorted.map((p, idx) => {
           const isDrawing = p.id === drawerId
-          const isMe = p.id === mySocketId
+          const isMe = p.id === myPlayerId
           const score = scores[p.id] || 0
-          // tìm popup cho player này (khớp theo tên vì scorePopup dùng playerName)
-          const popup = scorePopups.find(sp => sp.name === p.name)
-
-          const showGlow = idx === 0 && (scores[p.id] || 0) > 0
+          const popup = scorePopups.find(sp => sp.playerId === p.id)
+          const isLeader = idx === 0 && score > 0
+          const showGlow = isLeader
+          const isTakeover = leaderJustChanged === p.id
 
           return (
             <div key={p.id} className="relative">
               <div
-                className={`relative flex items-center p-2 rounded-2xl border-2 transition-all ${
+                className={`relative flex items-center p-2 rounded-2xl border-2 transition-all duration-500 ${
                   isDrawing ? "border-teal-400 bg-teal-50" : "border-gray-50 bg-gray-50"
-                } ${showGlow ? "leader-glow" : ""}`}
+                } ${showGlow ? "leader-glow scale-[1.02] ring-2 ring-yellow-300/60" : ""} ${isTakeover ? "leader-takeover" : ""}`}
                 style={showGlow ? {
-                  boxShadow: "0 0 12px rgba(234,179,8,0.3), 0 0 24px rgba(234,179,8,0.15)",
-                  borderColor: "#eab308",
+                  boxShadow: "0 0 16px rgba(234,179,8,0.45), 0 0 32px rgba(234,179,8,0.2)",
+                  borderColor: "#ca8a04",
                   background: "linear-gradient(135deg, #fefce8, #fef9c3)"
                 } : isDrawing ? {
                   borderColor: "#2dd4bf",
                   background: "#f0fdfa"
                 } : {}}
               >
-                {/* Avatar */}
+                {/* Avatar — right-click or long-press for interaction wheel */}
                 <div className="relative shrink-0">
-                  <PlayerAvatar src={p.avatar} name={p.name} />
+                  <InteractiveAvatar targetId={p.id} targetName={p.name} disabled={isMe || p.connected === false}>
+                    <PlayerAvatar src={p.avatar} name={p.name} />
+                  </InteractiveAvatar>
                   {isDrawing && (
                     <div className="absolute -bottom-1 -right-1 bg-teal-500 text-white rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
                       <Pencil className="w-2.5 h-2.5" />
                     </div>
                   )}
-                  {idx === 0 && (
+                  {isLeader && (
                     <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                       <Crown className="w-4 h-4 text-yellow-400 drop-shadow" />
                     </div>
@@ -93,6 +107,9 @@ export default function PlayerList() {
                 {/* Name & score */}
                 <div className="ml-2 flex-1 min-w-0">
                   <div className="flex items-center gap-1">
+                    {isLeader && (
+                      <span className="text-[9px] font-black text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded-full shrink-0">#1</span>
+                    )}
                     <span className="text-sm font-bold text-gray-700 truncate leading-none">{p.name}</span>
                     {isMe && <span className="text-[9px] text-purple-400 font-medium shrink-0">({t("app.you")})</span>}
                   </div>
@@ -135,7 +152,7 @@ export default function PlayerList() {
       </div>
 
       {/* Leader banner */}
-      {leader && (
+      {leader && leaderScore > 0 && (
         <div className="shrink-0 m-3 p-3 rounded-2xl flex items-center gap-2"
           style={{
             background: "linear-gradient(135deg, #fefce8, #fef9c3)",
@@ -149,7 +166,7 @@ export default function PlayerList() {
           ><Trophy className="w-4 h-4" /></div>
           <div className="flex flex-col leading-tight min-w-0">
             <span className="font-bold text-xs truncate" style={{ color: "#854d0e" }}>{leader.name} {t("app.leader_title")}</span>
-            <span className="text-[10px] flex items-center gap-1" style={{ color: "#a16207" }}><Star className="w-3 h-3 fill-yellow-500 text-yellow-500" /> {scores[leader.id] || 0} {t("app.leader_score")}</span>
+            <span className="text-[10px] flex items-center gap-1" style={{ color: "#a16207" }}><Star className="w-3 h-3 fill-yellow-500 text-yellow-500" /> {leaderScore} {t("app.leader_score")}</span>
           </div>
           <div className="ml-auto text-purple-300 opacity-60"><Crown className="w-4 h-4" /></div>
         </div>
@@ -166,6 +183,16 @@ export default function PlayerList() {
 
         .leader-glow {
           animation: leaderGlow 1.5s ease-in-out infinite alternate;
+        }
+
+        .leader-takeover {
+          animation: leaderTakeover 0.8s ease-out both;
+        }
+
+        @keyframes leaderTakeover {
+          0%   { transform: scale(1); }
+          30%  { transform: scale(1.08); box-shadow: 0 0 24px rgba(234,179,8,0.6); }
+          100% { transform: scale(1.02); }
         }
 
         @keyframes leaderGlow {

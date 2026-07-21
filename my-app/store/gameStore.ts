@@ -7,7 +7,7 @@ interface GameStore {
   players: Player[]
   scores: Record<string, number>
   hostId: string
-  mySocketId: string
+  myPlayerId: string
   drawerId: string
   drawerName: string
   round: number
@@ -27,15 +27,15 @@ interface GameStore {
   waitingDrawerName: string
   // gần đúng — dùng object { key, message } để force remount toast mỗi lần mới
   closeGuessHint: { key: number; message: string }
-  // hiệu ứng cộng điểm: [{ id, name, points }]
-  scorePopups: { id: string; name: string; points: number }[]
+  // hiệu ứng cộng điểm: [{ id, playerId, points }]
+  scorePopups: { id: string; playerId: string; points: number }[]
   // màn hình kết thúc trước bảng xếp hạng
   showGameEndSplash: boolean
 
   setRoom: (roomId: string, playerName: string) => void
   setPlayers: (players: Player[], scores: Record<string, number>, hostId: string) => void
-  setMySocketId: (id: string) => void
-  setRoundStart: (data: { drawerId: string; drawerName: string; round: number; maxRounds: number; maskedWord: string; timeLimit: number; myWord?: string }) => void
+  setMyPlayerId: (id: string) => void
+  setRoundStart: (data: { drawerId: string; drawerName: string; round: number; maxRounds: number; maskedWord: string; timeLimit: number; deadline?: number; myWord?: string }) => void
   setMyWord: (word: string) => void
   setMaskedWord: (w: string) => void
   addMessage: (msg: ChatMessage) => void
@@ -47,7 +47,7 @@ interface GameStore {
   setWaitingForDrawer: (drawerName: string) => void
   setPreRound: (drawerId: string, drawerName: string, round: number, maxRounds: number) => void
   setCloseGuessHint: (msg: string) => void
-  addScorePopup: (id: string, name: string, points: number) => void
+  addScorePopup: (id: string, playerId: string, points: number) => void
   removeScorePopup: (id: string) => void
   setShowGameEndSplash: (v: boolean) => void
   resetGame: () => void
@@ -59,11 +59,11 @@ export const useGameStore = create<GameStore>((set) => ({
   players: [],
   scores: {},
   hostId: "",
-  mySocketId: "",
+  myPlayerId: "",
   drawerId: "",
   drawerName: "",
   round: 0,
-  maxRounds: 3,
+  maxRounds: 1,
   maskedWord: "",
   myWord: "",
   gameStarted: false,
@@ -82,7 +82,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
   setRoom: (roomId, playerName) => set({ roomId, playerName }),
   setPlayers: (players, scores, hostId) => set({ players, scores, hostId }),
-  setMySocketId: (id) => set({ mySocketId: id }),
+  setMyPlayerId: (id) => set({ myPlayerId: id }),
   setRoundStart: (data) => set({
     drawerId: data.drawerId,
     drawerName: data.drawerName,
@@ -108,12 +108,12 @@ export const useGameStore = create<GameStore>((set) => ({
   setWaitingForDrawer: (drawerName) => set({ waitingForDrawer: true, waitingDrawerName: drawerName, choosingWord: false }),
   setPreRound: (drawerId, drawerName, round, maxRounds) => set({ drawerId, drawerName, round, maxRounds, roundActive: false, choosingWord: false, wordChoices: [], waitingForDrawer: false }),
   setCloseGuessHint: (msg) => set(s => ({ closeGuessHint: { key: s.closeGuessHint.key + 1, message: msg } })),
-  addScorePopup: (id, name, points) => set(s => ({ scorePopups: [...s.scorePopups, { id, name, points }] })),
+  addScorePopup: (id, playerId, points) => set(s => ({ scorePopups: [...s.scorePopups, { id, playerId, points }] })),
   removeScorePopup: (id) => set(s => ({ scorePopups: s.scorePopups.filter(p => p.id !== id) })),
   setShowGameEndSplash: (v) => set({ showGameEndSplash: v }),
   resetGame: () => set({
-    roomId: "", playerName: "", players: [], scores: {}, hostId: "", mySocketId: "",
-    drawerId: "", drawerName: "", round: 0, maxRounds: 3,
+    roomId: "", playerName: "", players: [], scores: {}, hostId: "", myPlayerId: "",
+    drawerId: "", drawerName: "", round: 0, maxRounds: 1,
     maskedWord: "", myWord: "", gameStarted: false, roundActive: false,
     timeLeft: 80, messages: [], leaderboard: [], gameOver: false,
     choosingWord: false, wordChoices: [], waitingForDrawer: false, waitingDrawerName: "",

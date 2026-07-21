@@ -60,34 +60,27 @@ export default function Canvas({ isDrawer }: Props) {
 
   useEffect(() => {
     const socket = getSocket()
-    socket.on("draw", (data: DrawData) => {
+    const onDraw = (data: DrawData) => {
       const ctx = canvasRef.current?.getContext("2d")
       if (ctx) drawLine(ctx, data)
-    })
+    }
+    socket.on("draw", onDraw)
     socket.on("clear_canvas", clearCanvas)
     return () => {
-      socket.off("draw")
-      socket.off("clear_canvas")
+      socket.off("draw", onDraw)
+      socket.off("clear_canvas", clearCanvas)
     }
   }, [drawLine, clearCanvas])
 
-  const getPos = (e: React.MouseEvent) => {
+  const getPos = (clientX: number, clientY: number) => {
     const rect = canvasRef.current!.getBoundingClientRect()
     return {
-      x: (e.clientX - rect.left) / scale,
-      y: (e.clientY - rect.top) / scale,
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale,
     }
   }
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    if (!isDrawer) return
-    drawing.current = true
-    lastPos.current = getPos(e)
-  }
-
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawer || !drawing.current) return
-    const pos = getPos(e)
+  const strokeAt = (pos: { x: number; y: number }) => {
     const ctx = canvasRef.current?.getContext("2d")
     const drawColor = activeTool === "eraser" ? "#FFFFFF" : color
     const data: DrawData = { x: pos.x, y: pos.y, px: lastPos.current.x, py: lastPos.current.y, color: drawColor, lineWidth }
@@ -96,7 +89,20 @@ export default function Canvas({ isDrawer }: Props) {
     lastPos.current = pos
   }
 
-  const onMouseUp = () => { drawing.current = false }
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawer) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drawing.current = true
+    lastPos.current = getPos(e.clientX, e.clientY)
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawer || !drawing.current) return
+    strokeAt(getPos(e.clientX, e.clientY))
+  }
+
+  const stopDrawing = () => { drawing.current = false }
 
   const handleClear = () => {
     clearCanvas()
@@ -112,7 +118,7 @@ export default function Canvas({ isDrawer }: Props) {
       {/* Canvas area */}
       <div
         ref={containerRef}
-        className="flex-1 flex items-center justify-center p-4 bg-white"
+        className="flex-1 flex items-center justify-center p-2 md:p-4 bg-white"
         style={{
           backgroundImage: "radial-gradient(#d1d5db 1px, transparent 1px)",
           backgroundSize: "20px 20px",
@@ -136,33 +142,34 @@ export default function Canvas({ isDrawer }: Props) {
             ref={canvasRef}
             width={CANVAS_W}
             height={CANVAS_H}
-            style={{ transformOrigin: "top left", transform: `scale(${scale})` }}
+            style={{ transformOrigin: "top left", transform: `scale(${scale})`, touchAction: "none" }}
             className={`bg-white ${isDrawer ? "cursor-crosshair" : "cursor-default"}`}
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={stopDrawing}
+            onPointerLeave={stopDrawing}
+            onPointerCancel={stopDrawing}
           />
         </div>
       </div>
 
       {/* Drawing toolbar — only for drawer */}
       {isDrawer && (
-        <div className="shrink-0 px-5 pb-5 pt-3 bg-purple-50 border-t border-purple-100">
+        <div className="shrink-0 px-3 md:px-5 pb-4 md:pb-5 pt-3 bg-purple-50 border-t border-purple-100">
           {/* Row 1: tools + brush sizes */}
-          <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex items-center justify-between gap-2 md:gap-4 mb-3">
             {/* Tools */}
             <div className="flex items-center gap-2 bg-white p-2 rounded-full shadow-sm">
               <button
                 onClick={() => setActiveTool("brush")}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${activeTool === "brush" ? "bg-purple-600 text-white shadow" : "text-gray-400 hover:bg-gray-100"}`}
+                className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center transition-colors ${activeTool === "brush" ? "bg-purple-600 text-white shadow" : "text-gray-400 hover:bg-gray-100"}`}
                 title={t("app.canvas_brush")}
               >
                 <Paintbrush2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setActiveTool("eraser")}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${activeTool === "eraser" ? "bg-purple-600 text-white shadow" : "text-gray-400 hover:bg-gray-100"}`}
+                className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center transition-colors ${activeTool === "eraser" ? "bg-purple-600 text-white shadow" : "text-gray-400 hover:bg-gray-100"}`}
                 title={t("app.canvas_eraser")}
               >
                 <Eraser className="w-4 h-4" />
@@ -175,7 +182,7 @@ export default function Canvas({ isDrawer }: Props) {
                 <button
                   key={s}
                   onClick={() => setLineWidth(s)}
-                  className={`rounded-full border-2 flex items-center justify-center transition-all ${lineWidth === s ? "border-purple-600 ring-2 ring-purple-200" : "border-white bg-gray-300"}`}
+                  className={`rounded-full border-2 flex items-center justify-center transition-all min-w-[44px] min-h-[44px] ${lineWidth === s ? "border-purple-600 ring-2 ring-purple-200" : "border-white bg-gray-300"}`}
                   style={{ width: s + 14, height: s + 14 }}
                 >
                   <div
@@ -192,31 +199,31 @@ export default function Canvas({ isDrawer }: Props) {
           </div>
 
           {/* Row 2: undo/clear + colors */}
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-2 md:gap-4">
             {/* Undo / Clear */}
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={handleUndo}
-                className="flex items-center gap-1.5 bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-xl font-bold text-xs border border-yellow-200 hover:bg-yellow-200 transition-colors"
+                className="flex items-center gap-1.5 bg-yellow-100 text-yellow-700 px-3 py-2 rounded-xl font-bold text-xs border border-yellow-200 hover:bg-yellow-200 transition-colors min-h-[44px]"
               >
-                <Undo2 className="w-3.5 h-3.5" /> {t("app.canvas_undo")}
+                <Undo2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{t("app.canvas_undo")}</span>
               </button>
               <button
                 onClick={handleClear}
-                className="flex items-center gap-1.5 bg-red-100 text-red-600 px-3 py-1.5 rounded-xl font-bold text-xs border border-red-200 hover:bg-red-200 transition-colors"
+                className="flex items-center gap-1.5 bg-red-100 text-red-600 px-3 py-2 rounded-xl font-bold text-xs border border-red-200 hover:bg-red-200 transition-colors min-h-[44px]"
               >
-                <Trash2 className="w-3.5 h-3.5" /> {t("app.canvas_clear")}
+                <Trash2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{t("app.canvas_clear")}</span>
               </button>
             </div>
 
             {/* Color palette */}
-            <div className="flex flex-wrap gap-1 justify-end">
+            <div className="flex gap-1 overflow-x-auto justify-end [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {COLORS.map((c, i) => (
                 <button
                   key={i}
                   onClick={() => { setColor(c); setActiveTool("brush") }}
                   title={c}
-                  className={`w-7 h-7 rounded-lg border-2 transition-transform hover:scale-110 shrink-0 ${color === c && activeTool === "brush" ? "border-purple-600 ring-2 ring-purple-200 scale-110" : "border-white"}`}
+                  className={`w-8 h-8 md:w-7 md:h-7 rounded-lg border-2 transition-transform hover:scale-110 shrink-0 ${color === c && activeTool === "brush" ? "border-purple-600 ring-2 ring-purple-200 scale-110" : "border-white"}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
