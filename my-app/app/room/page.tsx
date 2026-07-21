@@ -2,11 +2,34 @@
 
 import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { connectSocket, getSocket } from "@/services/socket"
+import { connectSocket, getSocket, leaveRoom } from "@/services/socket"
 import { useGameStore } from "@/store/gameStore"
 import { useLang } from "@/contexts/LanguageContext"
 import { Player } from "@/types/game"
-import { Copy, Check, Crown, Gamepad2, Play, Clock, HelpCircle } from "lucide-react"
+import { Copy, Check, Crown, Gamepad2, Play, Clock, HelpCircle, Users, DoorOpen, AlertCircle } from "lucide-react"
+
+function RoomClosedModal({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl shadow-2xl px-8 py-7 flex flex-col items-center gap-3 max-w-xs w-full mx-4"
+        style={{ border: "3px solid #f0e6ff", animation: "popModal 0.25s ease-out both" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+          <AlertCircle className="w-6 h-6 text-red-500" />
+        </div>
+        <p className="text-base font-bold text-gray-700 text-center">{message}</p>
+        <button
+          onClick={onClose}
+          className="mt-1 px-8 py-2.5 rounded-2xl font-black text-white text-sm shadow"
+          style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
+        >OK</button>
+      </div>
+      <style>{`@keyframes popModal { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }`}</style>
+    </div>
+  )
+}
 
 
 function PlayerAvatar({ src, name }: { src: string; name: string }) {
@@ -25,7 +48,7 @@ function PlayerAvatar({ src, name }: { src: string; name: string }) {
           src={src}
           alt={name}
           className="w-full h-full object-cover"
-          onError={(e) => {
+          onError={() => {
             console.log(`❌ Avatar load error for "${name}": ${src}`)
             setError(true)
           }}
@@ -47,57 +70,79 @@ function RoomContent() {
 
   const setRoom = useGameStore(s => s.setRoom)
   const setPlayers = useGameStore(s => s.setPlayers)
-  const setMySocketId = useGameStore(s => s.setMySocketId)
+  const setMyPlayerId = useGameStore(s => s.setMyPlayerId)
+  const resetGame = useGameStore(s => s.resetGame)
   const hostId = useGameStore(s => s.hostId)
-  const mySocketId = useGameStore(s => s.mySocketId)
+  const myPlayerId = useGameStore(s => s.myPlayerId)
 
   const [players, setLocalPlayers] = useState<Player[]>([])
   const [copied, setCopied] = useState(false)
+  const [roomClosed, setRoomClosed] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
-  const isHost = mySocketId !== "" && mySocketId === hostId
+  const isHost = myPlayerId !== "" && myPlayerId === hostId
+
+  const handleLeave = () => {
+    leaveRoom()
+    resetGame()
+    router.push("/")
+  }
+
+  const handleRoomClosedDismiss = () => {
+    setRoomClosed(false)
+    router.push("/")
+  }
 
   useEffect(() => {
     if (!roomId || !name) return
     setRoom(roomId, name)
-    connectSocket()
     const socket = getSocket()
 
-    const doJoin = () => {
-      setMySocketId(socket.id || "")
-      socket.emit("join_room", { roomId, name, avatar })
+    const onSessionJoined = ({ playerId }: { playerId: string }) => {
+      setMyPlayerId(playerId)
     }
 
-    if (socket.connected) {
-      doJoin()
-    } else {
-      socket.once("connect", doJoin)
-    }
-
-    socket.on("room_update", ({ players, scores, hostId }: { players: Player[]; scores: Record<string, number>; hostId: string }) => {
+    const onRoomUpdate = ({ players, scores, hostId }: { players: Player[]; scores: Record<string, number>; hostId: string }) => {
       console.log("🔍 Room update - Players:", players)
       players.forEach(p => console.log(`  - ${p.name}: avatar = "${p.avatar}"`))
       setLocalPlayers(players)
       setPlayers(players, scores, hostId)
-    })
+    }
 
     const goToGame = () => {
       router.push(`/game?roomId=${roomId}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`)
     }
 
+    const onRoomClosed = () => {
+      resetGame()
+      setRoomClosed(true)
+    }
+    const onError = (message: string) => setErrorMessage(message)
+    const onConnectError = () => setErrorMessage(t("app.connection_error"))
+
+    socket.on("session_joined", onSessionJoined)
+    socket.on("room_update", onRoomUpdate)
     socket.on("pre_round", goToGame)
     socket.on("choose_word", goToGame)
     socket.on("waiting_for_word", goToGame)
     socket.on("round_start", goToGame)
+    socket.on("room_closed", onRoomClosed)
+    socket.on("error_msg", onError)
+    socket.on("connect_error", onConnectError)
+    connectSocket({ roomId, name, avatar }, true)
 
     return () => {
-      socket.off("connect", doJoin)
-      socket.off("room_update")
-      socket.off("pre_round")
-      socket.off("choose_word")
-      socket.off("waiting_for_word")
-      socket.off("round_start")
+      socket.off("session_joined", onSessionJoined)
+      socket.off("room_update", onRoomUpdate)
+      socket.off("pre_round", goToGame)
+      socket.off("choose_word", goToGame)
+      socket.off("waiting_for_word", goToGame)
+      socket.off("round_start", goToGame)
+      socket.off("room_closed", onRoomClosed)
+      socket.off("error_msg", onError)
+      socket.off("connect_error", onConnectError)
     }
-  }, [roomId, name, router, setRoom, setPlayers, setMySocketId])
+  }, [roomId, name, avatar, router, setRoom, setPlayers, setMyPlayerId, resetGame, t])
 
   const startGame = () => {
     getSocket().emit("start_game", { roomId })
@@ -114,6 +159,8 @@ function RoomContent() {
       className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden"
       style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)" }}
     >
+      {roomClosed && <RoomClosedModal message={t("app.room_closed")} onClose={handleRoomClosedDismiss} />}
+      {errorMessage && <RoomClosedModal message={errorMessage} onClose={() => setErrorMessage("")} />}
       {/* Floating decorations — geometric shapes instead of emoji */}
       {[...Array(8)].map((_, i) => (
         <div
@@ -195,7 +242,10 @@ function RoomContent() {
             {/* Players */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-sm font-black text-purple-600 uppercase tracking-wider">~ {t("app.players")}</span>
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm font-black text-purple-600 uppercase tracking-wider">{t("app.players")}</span>
+                </div>
                 <span
                   className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
                   style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
@@ -210,10 +260,10 @@ function RoomContent() {
                     key={p.id}
                     className="flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-all duration-300"
                     style={{
-                      background: p.id === mySocketId
+                      background: p.id === myPlayerId
                         ? "linear-gradient(135deg, #f0f4ff, #faf0ff)"
                         : "rgba(0,0,0,0.03)",
-                      border: p.id === mySocketId ? "2px solid #c4b5fd" : "2px solid transparent",
+                      border: p.id === myPlayerId ? "2px solid #c4b5fd" : "2px solid transparent",
                       animation: `popIn 0.3s ease-out ${i * 0.08}s both`,
                     }}
                   >
@@ -226,7 +276,7 @@ function RoomContent() {
                       )}
                     </div>
                     <span className="font-bold text-gray-700 flex-1 text-sm">{p.name}</span>
-                    {p.id === mySocketId && (
+                    {p.id === myPlayerId && (
                       <span
                         className="text-xs font-bold px-2 py-0.5 rounded-full text-purple-600"
                         style={{ background: "#ede9fe" }}
@@ -289,6 +339,14 @@ function RoomContent() {
                 {t("app.waiting_host")}
               </div>
             )}
+
+            <button
+              onClick={handleLeave}
+              className="flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm border-2 border-red-200 text-red-500 bg-red-50 hover:bg-red-100 transition-colors active:scale-95"
+            >
+              <DoorOpen className="w-4 h-4" />
+              {t("app.room_leave")}
+            </button>
           </div>
         </div>
       </div>

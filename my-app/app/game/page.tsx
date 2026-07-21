@@ -1,15 +1,40 @@
 "use client"
 
-import { useEffect, useRef, Suspense } from "react"
+import { useCallback, useEffect, useRef, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { getSocket, connectSocket } from "@/services/socket"
+import { getSocket, connectSocket, leaveRoom, requestGameSnapshot } from "@/services/socket"
 import { useGameStore } from "@/store/gameStore"
 import { useLang } from "@/contexts/LanguageContext"
 import Canvas from "@/components/Canvas"
 import ChatBox from "@/components/ChatBox"
 import PlayerList from "@/components/PlayerList"
-import { ChatMessage, RoundStartPayload } from "@/types/game"
-import { Palette, DoorOpen, Home, Flame, Target, Search, Trophy, Crown, RefreshCw, RotateCcw } from "lucide-react"
+import { RadialMenuProvider, useRadialMenuContext } from "@/components/radial-menu"
+import type { InteractionEffectPayload, RadialMenuItem } from "@/components/radial-menu/types"
+import { ChatMessage, GameSnapshotPayload, Player, RoundStartPayload } from "@/types/game"
+import { DoorOpen, Home, Flame, Target, Search, Trophy, Crown, RefreshCw, AlertCircle, RotateCcw, Timer } from "lucide-react"
+
+function RoomClosedModal({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl shadow-2xl px-8 py-7 flex flex-col items-center gap-3 max-w-xs w-full mx-4"
+        style={{ border: "3px solid #f0e6ff", animation: "popModal 0.25s ease-out both" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+          <AlertCircle className="w-6 h-6 text-red-500" />
+        </div>
+        <p className="text-base font-bold text-gray-700 text-center">{message}</p>
+        <button
+          onClick={onClose}
+          className="mt-1 px-8 py-2.5 rounded-2xl font-black text-white text-sm shadow"
+          style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
+        >OK</button>
+      </div>
+      <style>{`@keyframes popModal { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }`}</style>
+    </div>
+  )
+}
 
 // ── Game End Splash (intermediate screen) ────────────────────────────
 function GameEndSplash({ onDone }: { onDone: () => void }) {
@@ -155,100 +180,211 @@ function GameContent() {
   const avatar = params.get("avatar") || "🐱"
 
   const store = useGameStore()
+  const { enqueueEffect } = useRadialMenuContext()
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const popupCounterRef = useRef(0)
+  const [roomClosed, setRoomClosed] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
+
+  const handleLeave = () => {
+    leaveRoom()
+    store.resetGame()
+    router.push("/")
+  }
+
+  const handleRoomClosedDismiss = () => {
+    setRoomClosed(false)
+    router.push("/")
+  }
 
   useEffect(() => {
     if (!roomId || !name) return
-    store.setRoom(roomId, name)
-    connectSocket()
+    useGameStore.getState().setRoom(roomId, name)
     const socket = getSocket()
 
-    const doJoin = () => {
-      store.setMySocketId(socket.id || "")
-      socket.emit("join_room", { roomId, name, avatar })
-    }
-
-    if (socket.connected) {
-      doJoin()
-    } else {
-      socket.once("connect", doJoin)
-    }
-
-    socket.on("room_update", ({ players, scores, hostId }) => {
-      store.setPlayers(players, scores, hostId)
-    })
-
-    socket.on("pre_round", ({ drawerId, drawerName, round, maxRounds }: { drawerId: string; drawerName: string; round: number; maxRounds: number }) => {
-      store.setPreRound(drawerId, drawerName, round, maxRounds)
-    })
-
-    socket.on("choose_word", ({ words }: { words: string[] }) => {
-      store.setChoosingWord(words)
-    })
-
-    socket.on("waiting_for_word", ({ drawerName }: { drawerName: string }) => {
-      store.setWaitingForDrawer(drawerName)
-    })
-
-    socket.on("round_start", (data: RoundStartPayload) => {
-      store.setRoundStart(data)
+    const startCountdown = (deadline: number | undefined, fallbackSeconds: number) => {
       if (timerRef.current) clearInterval(timerRef.current)
-      let t = data.timeLimit
-      store.setTimeLeft(t)
-      timerRef.current = setInterval(() => {
-        t--
-        store.setTimeLeft(t)
-        if (t <= 0 && timerRef.current) clearInterval(timerRef.current)
-      }, 1000)
-    })
+      const target = deadline || Date.now() + fallbackSeconds * 1000
+      const update = () => {
+        const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000))
+        useGameStore.getState().setTimeLeft(remaining)
+        if (remaining <= 0 && timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+      }
+      update()
+      timerRef.current = setInterval(update, 250)
+    }
 
-    socket.on("chat_message", (msg: ChatMessage) => {
-      store.addMessage(msg)
-    })
+    const onSessionJoined = ({ playerId }: { playerId: string }) => {
+      useGameStore.getState().setMyPlayerId(playerId)
+      requestGameSnapshot()
+    }
 
-    socket.on("correct_guess", ({ playerId, playerName, points, scores }: { playerId: string; playerName: string; points: number; scores: Record<string, number> }) => {
-      store.setPlayers(store.players, scores, store.hostId)
-      // Hiệu ứng cộng điểm
+    const onRoomUpdate = ({ players, scores, hostId }: {
+      players: Player[]
+      scores: Record<string, number>
+      hostId: string
+    }) => useGameStore.getState().setPlayers(players, scores, hostId)
+
+    const onPreRound = ({ drawerId, drawerName, round, maxRounds }: {
+      drawerId: string
+      drawerName: string
+      round: number
+      maxRounds: number
+    }) => {
+      const state = useGameStore.getState()
+      state.setGameStarted(true)
+      state.setPreRound(drawerId, drawerName, round, maxRounds)
+    }
+
+    const onChooseWord = ({ words }: { words: string[] }) => {
+      useGameStore.getState().setChoosingWord(words)
+    }
+
+    const onWaitingForWord = ({ drawerName }: { drawerName: string }) => {
+      useGameStore.getState().setWaitingForDrawer(drawerName)
+    }
+
+    const onRoundStart = (data: RoundStartPayload) => {
+      useGameStore.getState().setRoundStart(data)
+      startCountdown(data.deadline, data.timeLimit)
+    }
+
+    const onChatMessage = (msg: ChatMessage) => useGameStore.getState().addMessage(msg)
+
+    const onCorrectGuess = ({ playerId, points, scores, drawerId, drawerPoints }: {
+      playerId: string
+      playerName: string
+      points: number
+      scores: Record<string, number>
+      drawerId?: string
+      drawerPoints?: number
+    }) => {
+      const state = useGameStore.getState()
+      state.setPlayers(state.players, scores, state.hostId)
       const popupId = `${playerId}-${++popupCounterRef.current}`
-      store.addScorePopup(popupId, playerName, points)
-      setTimeout(() => store.removeScorePopup(popupId), 2400)
-    })
+      state.addScorePopup(popupId, playerId, points)
+      setTimeout(() => useGameStore.getState().removeScorePopup(popupId), 2400)
+      if (drawerId && drawerPoints) {
+        const drawerPopupId = `${drawerId}-${++popupCounterRef.current}`
+        state.addScorePopup(drawerPopupId, drawerId, drawerPoints)
+        setTimeout(() => useGameStore.getState().removeScorePopup(drawerPopupId), 2400)
+      }
+    }
 
-    socket.on("close_guess", ({ message }: { message: string }) => {
-      store.setCloseGuessHint(message)
-    })
+    const onCloseGuess = ({ message }: { message: string }) => {
+      useGameStore.getState().setCloseGuessHint(message)
+    }
 
-    socket.on("round_end", ({ word, scores }: { word: string; scores: Record<string, number> }) => {
+    const onRoundEnd = ({ word, scores }: { word: string; scores: Record<string, number> }) => {
       if (timerRef.current) clearInterval(timerRef.current)
-      store.setRoundEnd(word, scores)
-      store.addMessage({ sender: "System", message: `Từ đúng là: "${word}"`, type: "system" })
-    })
+      const state = useGameStore.getState()
+      state.setRoundEnd(word, scores)
+      if (word) {
+        state.addMessage({ sender: "System", message: t("app.game_correct_word", { word }), type: "system" })
+      }
+    }
 
-    socket.on("game_over", ({ leaderboard }) => {
+    const onGameOver = ({ leaderboard }: { leaderboard: { name: string; score: number; avatar: string }[] }) => {
       if (timerRef.current) clearInterval(timerRef.current)
-      store.setGameOver(leaderboard)
-    })
+      useGameStore.getState().setGameOver(leaderboard)
+    }
+
+    const onRoomClosed = () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      useGameStore.getState().resetGame()
+      setRoomClosed(true)
+    }
+
+    const onSnapshot = (snapshot: GameSnapshotPayload) => {
+      const state = useGameStore.getState()
+      state.setPlayers(snapshot.players, snapshot.scores, snapshot.hostId)
+      if (snapshot.phase === "LOBBY") {
+        router.replace(`/room?roomId=${roomId}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`)
+        return
+      }
+      if (snapshot.phase === "CHOOSING") {
+        state.setGameStarted(true)
+        state.setPreRound(snapshot.drawerId, snapshot.drawerName, snapshot.round, snapshot.maxRounds)
+        if (snapshot.wordChoices.length > 0) state.setChoosingWord(snapshot.wordChoices)
+        else state.setWaitingForDrawer(snapshot.drawerName)
+        return
+      }
+      if (snapshot.phase === "DRAWING") {
+        state.setRoundStart({
+          drawerId: snapshot.drawerId,
+          drawerName: snapshot.drawerName,
+          round: snapshot.round,
+          maxRounds: snapshot.maxRounds,
+          maskedWord: snapshot.maskedWord,
+          timeLimit: snapshot.timeLimit,
+          deadline: snapshot.deadline,
+          myWord: snapshot.myWord,
+        })
+        startCountdown(snapshot.deadline, snapshot.timeLimit)
+        return
+      }
+      if (snapshot.phase === "ROUND_END") {
+        state.setPreRound(snapshot.drawerId, snapshot.drawerName, snapshot.round, snapshot.maxRounds)
+        return
+      }
+      if (snapshot.phase === "GAME_OVER" && snapshot.leaderboard) {
+        state.setGameOver(snapshot.leaderboard)
+      }
+    }
+
+    const onError = (message: string) => setErrorMessage(message)
+    const onConnectError = () => setErrorMessage(t("app.connection_error"))
+    const onConnect = () => requestGameSnapshot()
+    const onInteractionEffect = (effect: InteractionEffectPayload) => enqueueEffect(effect)
+
+    socket.on("session_joined", onSessionJoined)
+    socket.on("room_update", onRoomUpdate)
+    socket.on("pre_round", onPreRound)
+    socket.on("choose_word", onChooseWord)
+    socket.on("waiting_for_word", onWaitingForWord)
+    socket.on("round_start", onRoundStart)
+    socket.on("chat_message", onChatMessage)
+    socket.on("correct_guess", onCorrectGuess)
+    socket.on("close_guess", onCloseGuess)
+    socket.on("round_end", onRoundEnd)
+    socket.on("game_over", onGameOver)
+    socket.on("room_closed", onRoomClosed)
+    socket.on("game_snapshot", onSnapshot)
+    socket.on("error_msg", onError)
+    socket.on("connect_error", onConnectError)
+    socket.on("connect", onConnect)
+    socket.on("interaction_effect", onInteractionEffect)
+
+    connectSocket({ roomId, name, avatar })
+    if (socket.connected) requestGameSnapshot()
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
-      socket.off("connect", doJoin)
-      socket.off("room_update")
-      socket.off("pre_round")
-      socket.off("choose_word")
-      socket.off("waiting_for_word")
-      socket.off("round_start")
-      socket.off("chat_message")
-      socket.off("correct_guess")
-      socket.off("close_guess")
-      socket.off("round_end")
-      socket.off("game_over")
+      socket.off("session_joined", onSessionJoined)
+      socket.off("room_update", onRoomUpdate)
+      socket.off("pre_round", onPreRound)
+      socket.off("choose_word", onChooseWord)
+      socket.off("waiting_for_word", onWaitingForWord)
+      socket.off("round_start", onRoundStart)
+      socket.off("chat_message", onChatMessage)
+      socket.off("correct_guess", onCorrectGuess)
+      socket.off("close_guess", onCloseGuess)
+      socket.off("round_end", onRoundEnd)
+      socket.off("game_over", onGameOver)
+      socket.off("room_closed", onRoomClosed)
+      socket.off("game_snapshot", onSnapshot)
+      socket.off("error_msg", onError)
+      socket.off("connect_error", onConnectError)
+      socket.off("connect", onConnect)
+      socket.off("interaction_effect", onInteractionEffect)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, name, avatar])
+  }, [roomId, name, avatar, router, t, enqueueEffect])
 
-  const socketId = store.mySocketId
-  const isDrawer = store.drawerId !== "" && store.drawerId === socketId
+  const playerId = store.myPlayerId
+  const isDrawer = store.drawerId !== "" && store.drawerId === playerId
 
   // ─── Game End Splash ────────────────────────────────────────────────
   if (store.gameOver && store.showGameEndSplash) {
@@ -298,7 +434,7 @@ function GameContent() {
             <div className="flex items-end justify-center gap-3 mt-8 mb-6">
               {podiumSlots.map((slot, si) => {
                 const player = top3[slot.rank - 1]
-                if (!player) return <div key={si} className="w-28" />
+                if (!player) return <div key={si} className="w-36" />
                 return (
                   <div key={si} className="flex flex-col items-center" style={{ animation: `popConf 0.4s ease-out ${si * 0.12}s both` }}>
                     {/* Avatar above podium */}
@@ -313,9 +449,12 @@ function GameContent() {
                       )}
                     </div>
                     {/* Podium block */}
-                    <div className={`w-32 ${slot.colHeight} rounded-2xl bg-gradient-to-b ${slot.bg} border-2 ${slot.border} flex flex-col items-center justify-end pb-3 pt-8 shadow-md`}>
+                    <div className={`w-36 ${slot.colHeight} rounded-2xl bg-gradient-to-b ${slot.bg} border-2 ${slot.border} flex flex-col items-center justify-end pb-3 pt-8 shadow-md`}>
                       <span className={`text-[10px] font-black uppercase tracking-widest ${slot.labelColor}`}>{slot.label}</span>
-                      <span className="font-black text-gray-800 text-sm leading-tight text-center px-2 truncate w-full text-center">{player.name}</span>
+                      <span
+                        className="font-black text-gray-800 text-sm leading-snug text-center px-2 break-words w-full min-h-[2.5rem] flex items-center justify-center"
+                        title={player.name}
+                      >{player.name}</span>
                       <span className={`font-black text-lg ${slot.scoreColor}`}>{player.score.toLocaleString()}</span>
                       <span className={`text-[10px] ${slot.scoreColor} opacity-70`}>{t("app.score")}</span>
                     </div>
@@ -336,7 +475,7 @@ function GameContent() {
                     <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-purple-100 shrink-0">
                       <img src={p.avatar} alt={p.name} width={36} height={36} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </div>
-                    <span className="flex-1 font-semibold text-gray-700 text-sm min-w-0 truncate">{p.name}</span>
+                    <span className="flex-1 font-semibold text-gray-700 text-sm min-w-0 break-words" title={p.name}>{p.name}</span>
                     <span className="font-black text-purple-600 text-sm shrink-0">{p.score.toLocaleString()} <span className="font-normal text-purple-400 text-xs">{t("app.score")}</span></span>
                   </div>
                 ))}
@@ -356,7 +495,7 @@ function GameContent() {
                 {t("app.game_over_play_again")}
               </button>
               <button
-                onClick={() => { store.resetGame(); router.push("/") }}
+                onClick={handleLeave}
                 className="flex-1 py-3 rounded-2xl font-black text-sm shadow-md transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                 style={{ background: "#f3f0ff", color: "#7c3aed", border: "2px solid #ddd6fe" }}
               >
@@ -378,100 +517,113 @@ function GameContent() {
 
   // ─── Main game screen ───────────────────────────────────────────────
   const maxTime = 80
-  const circumference = 2 * Math.PI * 14
+  const circumference = 2 * Math.PI * 19
   const timerOffset = circumference * (1 - store.timeLeft / maxTime)
   const timerColor = store.timeLeft <= 10 ? "#EF4444" : "#10B981"
 
   return (
-    <div className="h-screen flex flex-col p-3 overflow-hidden" style={{ background: "#E8E9FF" }}>
+    <div className="h-screen flex flex-col p-2 md:p-3 overflow-hidden" style={{ background: "#E8E9FF" }}>
       <CloseGuessToast />
+      {roomClosed && <RoomClosedModal message={t("app.room_closed")} onClose={handleRoomClosedDismiss} />}
+      {errorMessage && <RoomClosedModal message={errorMessage} onClose={() => setErrorMessage("")} />}
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between bg-white rounded-2xl px-5 py-2.5 shadow-sm mb-3 shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="relative flex items-center justify-between gap-2 bg-white rounded-2xl px-3 md:px-5 py-2.5 shadow-sm mb-2 md:mb-3 shrink-0">
+        <div className="flex items-center gap-2 md:gap-3">
           <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-br from-pink-400 to-purple-500 p-1.5 rounded-xl">
-              <Palette className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-black text-pink-500">DrawGuess</span>
+            <img src="/logo.png" alt="DrawGuess" className="w-8 h-8 md:w-9 md:h-9 object-contain" />
+            <span className="hidden sm:inline text-lg md:text-xl font-black text-pink-500">DrawGuess</span>
           </div>
-
-          <div className="h-7 w-px bg-gray-200" />
-
-          {store.roundActive && (
-            <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-full border border-purple-100">
-              <span className="text-xs text-purple-600 font-bold uppercase">{t("app.round")}</span>
-              <div className="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">{store.round}</div>
-              <span className="text-xs text-purple-400 font-bold">/ {store.maxRounds}</span>
-            </div>
-          )}
-
-          {store.roundActive && (
-            <div className="flex items-center gap-1.5">
-              <div className="relative w-8 h-8 flex items-center justify-center">
-                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                  <circle cx="16" cy="16" r="14" stroke="#E5E7EB" strokeWidth="3" fill="none" />
-                  <circle
-                    cx="16" cy="16" r="14"
-                    stroke={timerColor}
-                    strokeWidth="3" fill="none"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={timerOffset}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="text-xs font-bold relative z-10" style={{ color: timerColor }}>{store.timeLeft}</span>
-              </div>
-              <span className="text-xs font-medium text-gray-400">{t("app.seconds")}</span>
-            </div>
-          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 px-4 py-1.5 rounded-2xl">
+        {/* Center status is absolutely positioned so it does not resize the header bar */}
+        {store.round > 0 && (
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2.5 md:gap-4 max-sm:scale-[0.78]"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                <RotateCcw className="w-4 h-4" />
+              </div>
+              <div className="flex items-baseline gap-1 whitespace-nowrap">
+                <span className="text-[10px] md:text-xs text-purple-500 font-black uppercase tracking-wider">{t("app.round")}</span>
+                <span className="text-xl md:text-2xl leading-none text-purple-700 font-black">{store.round}</span>
+                <span className="text-sm text-purple-400 font-black">/ {store.maxRounds}</span>
+              </div>
+            </div>
+
+            {store.roundActive && (
+              <>
+                <div className="h-8 w-px bg-purple-200" />
+                <div className="flex items-center gap-2">
+                  <Timer className="w-5 h-5 shrink-0" style={{ color: timerColor }} />
+                  <div className="relative w-11 h-11 flex items-center justify-center">
+                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 44 44">
+                      <circle cx="22" cy="22" r="19" stroke="#E5E7EB" strokeWidth="4" fill="none" />
+                      <circle
+                        cx="22" cy="22" r="19"
+                        stroke={timerColor}
+                        strokeWidth="4" fill="none"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={timerOffset}
+                        strokeLinecap="round"
+                        className="transition-[stroke-dashoffset] duration-300"
+                      />
+                    </svg>
+                    <span className="text-sm font-black relative z-10" style={{ color: timerColor }}>{store.timeLeft}</span>
+                  </div>
+                  <span className="hidden sm:inline text-xs font-bold text-gray-500">{t("app.seconds")}</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 justify-between md:justify-end">
+          <div className="hidden sm:flex items-center gap-2 bg-orange-50 border border-orange-100 px-3 md:px-4 py-1.5 rounded-2xl">
               <Home className="w-4 h-4 text-orange-500" />
               <span className="text-sm font-semibold text-orange-800">
                 {t("app.room_code_label")}: <span className="font-black text-orange-900 tracking-wider">{roomId}</span>
               </span>
             </div>
           <button
-            onClick={() => { store.resetGame(); router.push("/") }}
+            onClick={handleLeave}
             className="flex items-center gap-1.5 bg-red-50 text-red-500 px-4 py-1.5 rounded-2xl font-bold text-sm border border-red-100 hover:bg-red-100 transition-colors"
           >
-            <DoorOpen className="w-4 h-4" /> {t("app.leave")}
+            <DoorOpen className="w-4 h-4" /> <span className="hidden sm:inline">{t("app.leave")}</span>
           </button>
         </div>
       </div>
 
       {/* ── Main layout ── */}
-      <div className="flex flex-1 gap-3 overflow-hidden min-h-0">
-        <div className="w-60 shrink-0 flex flex-col min-h-0">
+      <div className="flex flex-1 flex-col md:flex-row gap-2 md:gap-3 overflow-hidden min-h-0">
+        <div className="order-2 md:order-1 w-full md:w-60 shrink-0 flex flex-col min-h-0 max-h-36 md:max-h-none">
           <PlayerList />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        <div className="order-1 md:order-2 flex-1 flex flex-col min-w-0 min-h-0">
           <div className="flex flex-col h-full bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
             {/* Canvas header */}
-            <div className={`shrink-0 px-4 py-2.5 flex items-center justify-center relative ${isDrawer ? "bg-[#F6AD55]" : "bg-[#9333EA]"}`}>
+            <div className={`shrink-0 px-3 md:px-4 py-2 md:py-2.5 flex items-center justify-center relative ${isDrawer ? "bg-[#F6AD55]" : "bg-[#9333EA]"}`}>
               {isDrawer ? (
-                <div className="flex items-center gap-3 text-white">
-                  <Target className="w-5 h-5" />
-                  <span className="font-bold">{t("app.drawer_hint")}</span>
-                  <div className="bg-white px-5 py-1 rounded-full text-orange-500 font-black text-lg tracking-[0.15em] uppercase shadow-sm">
+                <div className="flex items-center gap-2 md:gap-3 text-white flex-wrap justify-center">
+                  <Target className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="font-bold text-sm md:text-base">{t("app.drawer_hint")}</span>
+                  <div className="bg-white px-3 md:px-5 py-1 rounded-full text-orange-500 font-black text-base md:text-lg tracking-[0.15em] uppercase shadow-sm">
                     {store.myWord || "..."}
                   </div>
-                  <span className="text-xs font-bold opacity-90">{t("app.drawer_quick")}</span>
+                  <span className="text-xs font-bold opacity-90 hidden sm:inline">{t("app.drawer_quick")}</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 text-white">
+                <div className="flex items-center gap-2 md:gap-3 text-white flex-wrap justify-center">
                   {store.waitingForDrawer && !store.roundActive ? (
-                    <span className="text-sm font-bold opacity-90">
+                    <span className="text-xs md:text-sm font-bold opacity-90 text-center">
                       {t("app.waiting_choose", { name: store.waitingDrawerName })}
                     </span>
                   ) : store.roundActive ? (
                     <>
-                      <Search className="w-5 h-5" />
-                      <span className="font-bold">{t("app.guessing")}</span>
+                      <Search className="w-4 h-4 md:w-5 md:h-5" />
+                      <span className="font-bold text-sm md:text-base">{t("app.guessing")}</span>
                       <div className="flex gap-1.5">
                         {store.maskedWord.replace(/ /g, "").split("").map((ch, i) => (
                           <div key={i} className={`h-1 rounded-full ${ch !== "_" ? "w-5 bg-white" : "w-4 bg-white/40"}`} />
@@ -482,7 +634,7 @@ function GameContent() {
                       </div>
                     </>
                   ) : (
-                    <span className="text-sm opacity-80">{t("app.waiting_next")}</span>
+                    <span className="text-xs md:text-sm opacity-80">{t("app.waiting_next")}</span>
                   )}
                 </div>
               )}
@@ -490,12 +642,12 @@ function GameContent() {
 
             <div className="flex-1 relative min-h-0">
               {store.choosingWord && <WordChoiceOverlay />}
-              <Canvas isDrawer={isDrawer} />
+              <Canvas isDrawer={isDrawer && store.roundActive} />
             </div>
           </div>
         </div>
 
-        <div className="w-68 shrink-0 flex flex-col min-h-0" style={{ width: "17rem" }}>
+        <div className="order-3 w-full md:w-[17rem] shrink-0 flex flex-col min-h-0 h-44 md:h-auto">
           <ChatBox />
         </div>
       </div>
@@ -504,9 +656,22 @@ function GameContent() {
 }
 
 export default function GamePage() {
+  const handleInteraction = useCallback((payload: {
+    item: RadialMenuItem
+    targetId: string
+    targetName: string
+  }) => {
+    getSocket().emit("player_interaction", {
+      actionId: payload.item.id,
+      targetId: payload.targetId,
+    })
+  }, [])
+
   return (
     <Suspense>
-      <GameContent />
+      <RadialMenuProvider onInteraction={handleInteraction}>
+        <GameContent />
+      </RadialMenuProvider>
     </Suspense>
   )
 }
