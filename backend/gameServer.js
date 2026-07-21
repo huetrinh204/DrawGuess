@@ -88,9 +88,11 @@ function levenshtein(a, b) {
 }
 
 function isCloseGuess(guess, word) {
-  const normalizedGuess = guess.toLocaleLowerCase("vi")
-  const normalizedWord = word.toLocaleLowerCase("vi")
-  if (normalizedGuess === normalizedWord || normalizedWord.length <= 3) return false
+  const normalizedGuess = guess.toLocaleLowerCase("vi").trim()
+  const normalizedWord = word.toLocaleLowerCase("vi").trim()
+  if (normalizedGuess === normalizedWord) return false
+  if (normalizedWord.length >= 3 && normalizedGuess.includes(normalizedWord)) return true
+  if (normalizedWord.length <= 3) return false
   return levenshtein(normalizedGuess, normalizedWord) <= (normalizedWord.length <= 5 ? 1 : 2)
 }
 
@@ -378,7 +380,9 @@ function createGameServer(options = {}) {
     broadcastRoomUpdate(room)
     io.to(room.id).emit("chat_message", {
       sender: "System",
-      message: `${player.name} đã rời phòng`,
+      message: "",
+      messageKey: "app.chat_player_left",
+      messageVars: { name: player.name },
       type: "system",
     })
 
@@ -451,10 +455,6 @@ function createGameServer(options = {}) {
         socket.emit("error_msg", "Game đang diễn ra, không thể thêm người chơi mới")
         return
       }
-      if (!player && Array.from(room.players.values()).some(candidate => candidate.name.toLocaleLowerCase("vi") === name.toLocaleLowerCase("vi"))) {
-        socket.emit("error_msg", "Tên này đã được sử dụng trong phòng")
-        return
-      }
 
       if (socket.data.roomId && (socket.data.roomId !== roomId || socket.data.playerId !== player?.id)) {
         leaveCurrentRoom(socket, true)
@@ -509,7 +509,9 @@ function createGameServer(options = {}) {
       if (!resumed) {
         io.to(roomId).emit("chat_message", {
           sender: "System",
-          message: `${player.name} đã tham gia phòng`,
+          message: "",
+          messageKey: "app.chat_player_joined",
+          messageVars: { name: player.name },
           type: "system",
         })
       }
@@ -585,6 +587,30 @@ function createGameServer(options = {}) {
       socket.to(room.id).emit("draw", data)
     })
 
+    socket.on("stroke_end", () => {
+      const membership = resolveMembership(socket)
+      if (!membership) return
+      const { room, player } = membership
+      if (room.phase !== PHASES.DRAWING || room.drawerId !== player.id) return
+      socket.to(room.id).emit("stroke_end")
+    })
+
+    socket.on("stroke_cancel", () => {
+      const membership = resolveMembership(socket)
+      if (!membership) return
+      const { room, player } = membership
+      if (room.phase !== PHASES.DRAWING || room.drawerId !== player.id) return
+      socket.to(room.id).emit("stroke_cancel")
+    })
+
+    socket.on("undo", () => {
+      const membership = resolveMembership(socket)
+      if (!membership) return
+      const { room, player } = membership
+      if (room.phase !== PHASES.DRAWING || room.drawerId !== player.id) return
+      io.to(room.id).emit("undo")
+    })
+
     socket.on("clear_canvas", () => {
       const membership = resolveMembership(socket)
       if (!membership) return
@@ -612,14 +638,24 @@ function createGameServer(options = {}) {
         return
       }
       if (player.id === room.drawerId) {
-        socket.emit("chat_message", { sender: "System", message: "Bạn đang vẽ, không thể đoán!", type: "system" })
+        socket.emit("chat_message", {
+          sender: "System",
+          message: "",
+          messageKey: "app.chat_drawer_cannot_guess",
+          type: "system",
+        })
         return
       }
 
       const correct = message.toLocaleLowerCase("vi") === room.word.toLocaleLowerCase("vi")
       if (room.guessed.has(player.id)) {
         if (correct) {
-          socket.emit("chat_message", { sender: "System", message: "Bạn đã đoán đúng từ này rồi!", type: "system" })
+          socket.emit("chat_message", {
+            sender: "System",
+            message: "",
+            messageKey: "app.chat_already_guessed",
+            type: "system",
+          })
         } else {
           io.to(room.id).emit("chat_message", { sender: player.name, message, type: "chat", avatar: player.avatar })
         }
@@ -647,7 +683,9 @@ function createGameServer(options = {}) {
         })
         io.to(room.id).emit("chat_message", {
           sender: "System",
-          message: `${player.name} đã đoán đúng!`,
+          message: "",
+          messageKey: "app.chat_player_guessed_correct",
+          messageVars: { name: player.name },
           type: "correct",
         })
 
@@ -657,7 +695,20 @@ function createGameServer(options = {}) {
       }
 
       if (isCloseGuess(message, room.word)) {
-        socket.emit("close_guess", { message: "Gần đúng rồi! Cố thêm chút nữa 🔥" })
+        socket.emit("close_guess", { messageKey: "app.chat_close_guess" })
+        socket.emit("chat_message", {
+          sender: "System",
+          message: "",
+          messageKey: "app.chat_close_guess",
+          type: "system",
+        })
+      } else {
+        socket.emit("chat_message", {
+          sender: "System",
+          message: "",
+          messageKey: "app.chat_wrong_try_again",
+          type: "system",
+        })
       }
       io.to(room.id).emit("chat_message", { sender: player.name, message, type: "chat", avatar: player.avatar })
     })
@@ -695,4 +746,5 @@ function createGameServer(options = {}) {
 module.exports = {
   createGameServer,
   PHASES,
+  isCloseGuess,
 }

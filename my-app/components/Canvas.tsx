@@ -10,6 +10,8 @@ interface Props {
   isDrawer: boolean
 }
 
+type Stroke = DrawData[]
+
 const COLORS = [
   "#1A1A1A", "#E53E3E", "#ED8936", "#D69E2E", "#38A169", "#319795",
   "#3182CE", "#805AD5", "#D53F8C", "#F56565", "#975A16", "#22543D",
@@ -25,10 +27,13 @@ export default function Canvas({ isDrawer }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const drawing = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
+  const strokeHistory = useRef<Stroke[]>([])
+  const activeStroke = useRef<Stroke>([])
   const [color, setColor] = useState("#1A1A1A")
   const [lineWidth, setLineWidth] = useState(6)
   const [activeTool, setActiveTool] = useState<"brush" | "eraser">("brush")
   const [scale, setScale] = useState(1)
+  const [canUndo, setCanUndo] = useState(false)
 
   useEffect(() => {
     const container = containerRef.current
@@ -39,6 +44,10 @@ export default function Canvas({ isDrawer }: Props) {
     })
     observer.observe(container)
     return () => observer.disconnect()
+  }, [])
+
+  const syncCanUndo = useCallback(() => {
+    setCanUndo(strokeHistory.current.length > 0 || activeStroke.current.length > 0)
   }, [])
 
   const drawLine = useCallback((ctx: CanvasRenderingContext2D, data: DrawData) => {
@@ -52,25 +61,70 @@ export default function Canvas({ isDrawer }: Props) {
     ctx.stroke()
   }, [])
 
+  const redrawCanvas = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
+    for (const stroke of strokeHistory.current) {
+      for (const segment of stroke) {
+        drawLine(ctx, segment)
+      }
+    }
+  }, [drawLine])
+
+  const commitActiveStroke = useCallback(() => {
+    if (activeStroke.current.length === 0) return
+    strokeHistory.current.push(activeStroke.current)
+    activeStroke.current = []
+    syncCanUndo()
+  }, [syncCanUndo])
+
   const clearCanvas = useCallback(() => {
+    strokeHistory.current = []
+    activeStroke.current = []
     const canvas = canvasRef.current
     if (!canvas) return
     canvas.getContext("2d")?.clearRect(0, 0, CANVAS_W, CANVAS_H)
-  }, [])
+    syncCanUndo()
+  }, [syncCanUndo])
 
   useEffect(() => {
     const socket = getSocket()
     const onDraw = (data: DrawData) => {
       const ctx = canvasRef.current?.getContext("2d")
+      activeStroke.current.push(data)
       if (ctx) drawLine(ctx, data)
     }
+    const onStrokeEnd = () => {
+      commitActiveStroke()
+    }
+    const onStrokeCancel = () => {
+      activeStroke.current = []
+      redrawCanvas()
+      syncCanUndo()
+    }
+    const onUndo = () => {
+      if (strokeHistory.current.length === 0) return
+      strokeHistory.current.pop()
+      activeStroke.current = []
+      redrawCanvas()
+      syncCanUndo()
+    }
     socket.on("draw", onDraw)
+    socket.on("stroke_end", onStrokeEnd)
+    socket.on("stroke_cancel", onStrokeCancel)
+    socket.on("undo", onUndo)
     socket.on("clear_canvas", clearCanvas)
     return () => {
       socket.off("draw", onDraw)
+      socket.off("stroke_end", onStrokeEnd)
+      socket.off("stroke_cancel", onStrokeCancel)
+      socket.off("undo", onUndo)
       socket.off("clear_canvas", clearCanvas)
     }
-  }, [drawLine, clearCanvas])
+  }, [drawLine, clearCanvas, redrawCanvas, commitActiveStroke, syncCanUndo])
 
   const getPos = (clientX: number, clientY: number) => {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -84,9 +138,11 @@ export default function Canvas({ isDrawer }: Props) {
     const ctx = canvasRef.current?.getContext("2d")
     const drawColor = activeTool === "eraser" ? "#FFFFFF" : color
     const data: DrawData = { x: pos.x, y: pos.y, px: lastPos.current.x, py: lastPos.current.y, color: drawColor, lineWidth }
+    activeStroke.current.push(data)
     if (ctx) drawLine(ctx, data)
     getSocket().emit("draw", data)
     lastPos.current = pos
+    syncCanUndo()
   }
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -94,6 +150,7 @@ export default function Canvas({ isDrawer }: Props) {
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
     drawing.current = true
+    activeStroke.current = []
     lastPos.current = getPos(e.clientX, e.clientY)
   }
 
@@ -102,7 +159,16 @@ export default function Canvas({ isDrawer }: Props) {
     strokeAt(getPos(e.clientX, e.clientY))
   }
 
-  const stopDrawing = () => { drawing.current = false }
+  const stopDrawing = () => {
+    if (!drawing.current) return
+    drawing.current = false
+    if (activeStroke.current.length > 0) {
+      strokeHistory.current.push(activeStroke.current)
+      activeStroke.current = []
+      syncCanUndo()
+      if (isDrawer) getSocket().emit("stroke_end")
+    }
+  }
 
   const handleClear = () => {
     clearCanvas()
@@ -110,7 +176,18 @@ export default function Canvas({ isDrawer }: Props) {
   }
 
   const handleUndo = () => {
-    // TODO: implement undo with history
+    if (!isDrawer) return
+    if (activeStroke.current.length > 0) {
+      drawing.current = false
+      activeStroke.current = []
+      redrawCanvas()
+      syncCanUndo()
+      getSocket().emit("stroke_cancel")
+      return
+    }
+    if (strokeHistory.current.length === 0) return
+    drawing.current = false
+    getSocket().emit("undo")
   }
 
   return (
@@ -204,7 +281,8 @@ export default function Canvas({ isDrawer }: Props) {
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={handleUndo}
-                className="flex items-center gap-1.5 bg-yellow-100 text-yellow-700 px-3 py-2 rounded-xl font-bold text-xs border border-yellow-200 hover:bg-yellow-200 transition-colors min-h-[44px]"
+                disabled={!canUndo}
+                className="flex items-center gap-1.5 bg-yellow-100 text-yellow-700 px-3 py-2 rounded-xl font-bold text-xs border border-yellow-200 hover:bg-yellow-200 transition-colors min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-yellow-100"
               >
                 <Undo2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{t("app.canvas_undo")}</span>
               </button>

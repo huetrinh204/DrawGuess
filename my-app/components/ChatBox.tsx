@@ -32,7 +32,13 @@ export default function ChatBox() {
     setInput("")
   }
 
-  const getBubbleStyle = (type: string) => {
+  const getBubbleStyle = (type: string, messageKey?: string) => {
+    if (messageKey === "app.chat_close_guess") {
+      return "bg-amber-50 text-amber-700 border border-amber-100 text-xs font-bold text-center rounded-2xl px-3 py-2"
+    }
+    if (messageKey === "app.chat_wrong_try_again") {
+      return "bg-red-50 text-red-500 border border-red-100 text-xs font-bold text-center rounded-2xl px-3 py-2"
+    }
     if (type === "system") return "bg-blue-50 text-blue-600 border border-blue-100 text-xs font-bold text-center rounded-2xl px-3 py-2"
     if (type === "correct") return "bg-green-50 text-green-600 border border-green-100 text-xs font-bold text-center rounded-2xl px-3 py-2"
     if (type === "wrong") return "bg-red-50 text-red-500 border border-red-100 px-4 py-2 rounded-2xl rounded-tl-none text-sm font-bold"
@@ -45,10 +51,15 @@ export default function ChatBox() {
     return p?.avatar || ""
   }
 
+  const resolveMessage = (m: { message: string; messageKey?: string; messageVars?: Record<string, string> }) => {
+    if (m.messageKey) return t(m.messageKey, m.messageVars)
+    return m.message
+  }
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
+    <div className="flex flex-col h-full bg-white rounded-3xl shadow-sm border border-gray-100">
       {/* Header */}
-      <div className="bg-pink-500 px-4 py-3 flex items-center justify-between text-white shrink-0">
+      <div className="bg-pink-500 px-4 py-3 flex items-center justify-between text-white shrink-0 rounded-t-3xl">
         <div className="flex items-center gap-2 font-bold text-sm">
           <MessageCircle className="w-4 h-4 opacity-80" />
           {t("app.chat_title")}
@@ -69,7 +80,7 @@ export default function ChatBox() {
         {messages.map((m, i) => {
           if (m.type === "system" || m.type === "correct") {
             return (
-              <div key={i} className={getBubbleStyle(m.type)}>{m.message}</div>
+              <div key={i} className={getBubbleStyle(m.type, m.messageKey)}>{resolveMessage(m)}</div>
             )
           }
           return (
@@ -80,9 +91,6 @@ export default function ChatBox() {
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-[10px] font-bold text-gray-400 leading-none">{m.sender}</span>
                 <div className={getBubbleStyle(m.type)}>{m.message}</div>
-                {m.type === "wrong" && (
-                  <span className="text-[9px] text-red-300 font-medium ml-1">Chưa đúng, thử lại nha!</span>
-                )}
               </div>
             </div>
           )
@@ -91,7 +99,7 @@ export default function ChatBox() {
       </div>
 
       {/* Input area */}
-      <div className="shrink-0 p-3 bg-gray-50 border-t border-gray-100">
+      <div className="shrink-0 px-3 pt-2.5 pb-3 bg-gray-50 border-t border-gray-100 rounded-b-3xl">
         {isDrawer ? (
           <div className="bg-orange-50 border border-orange-100 p-3 rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -105,28 +113,24 @@ export default function ChatBox() {
             </div>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <input
               disabled={!roundActive}
-              className="flex-1 bg-purple-50 border border-purple-100 rounded-2xl py-2.5 px-4 text-xs font-bold text-purple-600 placeholder-purple-300 focus:outline-none focus:border-purple-300"
+              className="min-w-0 flex-1 h-10 bg-purple-50 border border-purple-100 rounded-xl px-3.5 text-xs font-bold text-purple-600 placeholder-purple-300 focus:outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-200 disabled:opacity-50"
               placeholder={t("app.chat_input_placeholder")}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && send()}
             />
             <button
+              type="button"
               onClick={send}
-              disabled={!roundActive}
-              className="group relative overflow-hidden px-5 py-2.5 rounded-2xl font-bold text-xs text-white shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
-              style={{ background: "linear-gradient(135deg, #667eea, #764ba2)" }}
+              disabled={!roundActive || !input.trim()}
+              aria-label={t("app.chat_send")}
+              className="shrink-0 h-10 px-3.5 flex items-center justify-center gap-1.5 rounded-xl font-bold text-xs text-white bg-gradient-to-br from-[#667eea] to-[#764ba2] shadow-sm transition-[filter,opacity] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <span className="relative z-10 flex items-center gap-1.5">
-                {t("app.chat_send")}
-                <Send className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </span>
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                style={{ background: "linear-gradient(135deg, #764ba2, #667eea)" }}
-              />
+              <span className="hidden sm:inline">{t("app.chat_send")}</span>
+              <Send className="w-4 h-4 shrink-0" aria-hidden />
             </button>
           </div>
         )}

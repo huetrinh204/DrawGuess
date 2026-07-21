@@ -282,3 +282,12 @@ test("social interactions validate catalog, target membership, self-target, and 
   outsider.emit("player_interaction", { actionId: "heart", targetId: targetJoin.session.playerId })
   await crossRoomBlocked
 })
+
+test("isCloseGuess treats messages containing the keyword as close", () => {
+  const { isCloseGuess } = require("../gameServer")
+  assert.equal(isCloseGuess("mèo", "mèo"), false)
+  assert.equal(isCloseGuess("có phải mèo không", "mèo"), true)
+  assert.equal(isCloseGuess("xe hơi đúng không", "xe hơi"), true)
+  assert.equal(isCloseGuess("mèoo", "mèo"), true)
+  assert.equal(isCloseGuess("chó", "mèo"), false)
+})

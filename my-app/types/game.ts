@@ -10,6 +10,8 @@ export interface ChatMessage {
   message: string
   type: "chat" | "system" | "correct" | "wrong"
   avatar?: string
+  messageKey?: string
+  messageVars?: Record<string, string>
 }
 
 export interface DrawData {

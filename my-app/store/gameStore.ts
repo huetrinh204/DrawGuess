@@ -25,8 +25,8 @@ interface GameStore {
   wordChoices: string[]
   waitingForDrawer: boolean
   waitingDrawerName: string
-  // gần đúng — dùng object { key, message } để force remount toast mỗi lần mới
-  closeGuessHint: { key: number; message: string }
+  // gần đúng — dùng object { key, messageKey } để force remount toast mỗi lần mới
+  closeGuessHint: { key: number; messageKey: string }
   // hiệu ứng cộng điểm: [{ id, playerId, points }]
   scorePopups: { id: string; playerId: string; points: number }[]
   // màn hình kết thúc trước bảng xếp hạng
@@ -46,7 +46,7 @@ interface GameStore {
   setChoosingWord: (choices: string[]) => void
   setWaitingForDrawer: (drawerName: string) => void
   setPreRound: (drawerId: string, drawerName: string, round: number, maxRounds: number) => void
-  setCloseGuessHint: (msg: string) => void
+  setCloseGuessHint: (messageKey: string) => void
   addScorePopup: (id: string, playerId: string, points: number) => void
   removeScorePopup: (id: string) => void
   setShowGameEndSplash: (v: boolean) => void
@@ -76,7 +76,7 @@ export const useGameStore = create<GameStore>((set) => ({
   wordChoices: [],
   waitingForDrawer: false,
   waitingDrawerName: "",
-  closeGuessHint: { key: 0 as number, message: "" },
+  closeGuessHint: { key: 0 as number, messageKey: "" },
   scorePopups: [],
   showGameEndSplash: false,
 
@@ -107,7 +107,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setChoosingWord: (choices) => set({ choosingWord: true, wordChoices: choices, waitingForDrawer: false }),
   setWaitingForDrawer: (drawerName) => set({ waitingForDrawer: true, waitingDrawerName: drawerName, choosingWord: false }),
   setPreRound: (drawerId, drawerName, round, maxRounds) => set({ drawerId, drawerName, round, maxRounds, roundActive: false, choosingWord: false, wordChoices: [], waitingForDrawer: false }),
-  setCloseGuessHint: (msg) => set(s => ({ closeGuessHint: { key: s.closeGuessHint.key + 1, message: msg } })),
+  setCloseGuessHint: (messageKey) => set(s => ({ closeGuessHint: { key: s.closeGuessHint.key + 1, messageKey } })),
   addScorePopup: (id, playerId, points) => set(s => ({ scorePopups: [...s.scorePopups, { id, playerId, points }] })),
   removeScorePopup: (id) => set(s => ({ scorePopups: s.scorePopups.filter(p => p.id !== id) })),
   setShowGameEndSplash: (v) => set({ showGameEndSplash: v }),
@@ -117,7 +117,7 @@ export const useGameStore = create<GameStore>((set) => ({
     maskedWord: "", myWord: "", gameStarted: false, roundActive: false,
     timeLeft: 80, messages: [], leaderboard: [], gameOver: false,
     choosingWord: false, wordChoices: [], waitingForDrawer: false, waitingDrawerName: "",
-    closeGuessHint: { key: 0 as number, message: "" },
+    closeGuessHint: { key: 0 as number, messageKey: "" },
     scorePopups: [], showGameEndSplash: false
   })
 }))

@@ -37,16 +37,28 @@ function RoomClosedModal({ message, onClose }: { message: string; onClose: () =>
 }
 
 // ── Game End Splash (intermediate screen) ────────────────────────────
+const GAME_END_SPLASH_MS = 900
+
 function GameEndSplash({ onDone }: { onDone: () => void }) {
   const { t } = useLang()
+  const doneRef = useRef(onDone)
+  doneRef.current = onDone
+
   useEffect(() => {
-    const timer = setTimeout(onDone, 3000)
+    const timer = setTimeout(() => doneRef.current(), GAME_END_SPLASH_MS)
     return () => clearTimeout(timer)
-  }, [onDone])
+  }, [])
+
+  const skip = () => doneRef.current()
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+      role="button"
+      tabIndex={0}
+      aria-label={t("app.game_over_skip")}
+      onClick={skip}
+      onKeyDown={e => (e.key === "Enter" || e.key === " ") && skip()}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center cursor-pointer"
       style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)" }}
     >
       {/* Floating particles */}
@@ -66,8 +78,8 @@ function GameEndSplash({ onDone }: { onDone: () => void }) {
       ))}
 
       <div
-        className="flex flex-col items-center gap-6 text-center"
-        style={{ animation: "splashIn 0.6s ease-out both" }}
+        className="flex flex-col items-center gap-6 text-center pointer-events-none"
+        style={{ animation: "splashIn 0.35s ease-out both" }}
       >
         <div style={{ animation: "splashBounce 1s ease-in-out infinite alternate" }}>
           <Trophy className="w-20 h-20 text-yellow-300 drop-shadow-lg" />
@@ -78,6 +90,7 @@ function GameEndSplash({ onDone }: { onDone: () => void }) {
           </h1>
         </div>
         <p className="text-white/80 text-lg font-semibold">{t("app.game_over_processing")}</p>
+        <p className="text-white/50 text-xs font-medium">{t("app.game_over_skip")}</p>
 
         {/* Loading dots */}
         <div className="flex gap-2">
@@ -115,9 +128,9 @@ function GameEndSplash({ onDone }: { onDone: () => void }) {
 
 // ── Close guess toast ────────────────────────────────────────────────
 function CloseGuessToast() {
+  const { t } = useLang()
   const hint = useGameStore(s => s.closeGuessHint)
-  // key thay đổi mỗi lần hint mới → force remount → animation chạy lại từ đầu
-  if (!hint.message) return null
+  if (!hint.messageKey) return null
   return (
     <div
       key={hint.key}
@@ -125,7 +138,7 @@ function CloseGuessToast() {
       style={{ transform: "translateX(-50%)", animation: "toastPop 2.8s ease-out forwards" }}
     >
       <div className="bg-amber-400 text-white font-black text-sm px-5 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 whitespace-nowrap">
-        <Flame className="w-4 h-4" /> {hint.message}
+        <Flame className="w-4 h-4" /> {t(hint.messageKey)}
       </div>
       <style>{`
         @keyframes toastPop {
@@ -274,8 +287,8 @@ function GameContent() {
       }
     }
 
-    const onCloseGuess = ({ message }: { message: string }) => {
-      useGameStore.getState().setCloseGuessHint(message)
+    const onCloseGuess = ({ messageKey }: { messageKey: string }) => {
+      useGameStore.getState().setCloseGuessHint(messageKey)
     }
 
     const onRoundEnd = ({ word, scores }: { word: string; scores: Record<string, number> }) => {
@@ -283,7 +296,13 @@ function GameContent() {
       const state = useGameStore.getState()
       state.setRoundEnd(word, scores)
       if (word) {
-        state.addMessage({ sender: "System", message: t("app.game_correct_word", { word }), type: "system" })
+        state.addMessage({
+          sender: "System",
+          message: "",
+          messageKey: "app.game_correct_word",
+          messageVars: { word },
+          type: "system",
+        })
       }
     }
 
@@ -647,7 +666,7 @@ function GameContent() {
           </div>
         </div>
 
-        <div className="order-3 w-full md:w-[17rem] shrink-0 flex flex-col min-h-0 h-44 md:h-auto">
+        <div className="order-3 w-full md:w-[17rem] shrink-0 flex flex-col min-h-0 h-48 md:h-auto">
           <ChatBox />
         </div>
       </div>

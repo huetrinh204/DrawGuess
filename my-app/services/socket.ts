@@ -3,6 +3,7 @@ import { io, Socket } from "socket.io-client"
 let socket: Socket | null = null
 let configuredRoom: RoomSessionConfig | null = null
 let joinedSocketId = ""
+let joinInFlightRoomId = ""
 let lifecycleBound = false
 
 const BACKEND_URL =
@@ -36,7 +37,9 @@ function storeSession(session: JoinedSession) {
 function emitConfiguredJoin(force = false) {
   const current = getSocket()
   if (!configuredRoom || !current.connected) return
+  if (joinInFlightRoomId === configuredRoom.roomId) return
   if (!force && joinedSocketId === current.id) return
+  joinInFlightRoomId = configuredRoom.roomId
   joinedSocketId = current.id || ""
   current.emit("join_room", {
     ...configuredRoom,
@@ -49,14 +52,20 @@ function bindLifecycle(current: Socket) {
   lifecycleBound = true
   current.on("connect", () => {
     joinedSocketId = ""
+    joinInFlightRoomId = ""
     emitConfiguredJoin()
   })
   current.on("session_joined", (session: JoinedSession) => {
     storeSession(session)
     joinedSocketId = current.id || ""
+    joinInFlightRoomId = ""
   })
   current.on("disconnect", () => {
     joinedSocketId = ""
+    joinInFlightRoomId = ""
+  })
+  current.on("error_msg", () => {
+    joinInFlightRoomId = ""
   })
 }
 
@@ -96,6 +105,7 @@ export function disconnectSocket() {
   socket = null
   configuredRoom = null
   joinedSocketId = ""
+  joinInFlightRoomId = ""
   lifecycleBound = false
 }
 
@@ -107,4 +117,5 @@ export function leaveRoom() {
   }
   configuredRoom = null
   joinedSocketId = ""
+  joinInFlightRoomId = ""
 }
